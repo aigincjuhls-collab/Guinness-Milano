@@ -7,8 +7,8 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#090909">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script></script>
 <title>Black Gold — Guinness Milano</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -888,9 +888,18 @@ function renderDetail(p) {
 // ════════════════════════════════
 // REVIEWS HUB
 // ════════════════════════════════
+function getMyName() {
+  return localStorage.getItem("bg3_myname") || "";
+}
+function setMyName(n) {
+  localStorage.setItem("bg3_myname", n);
+}
+
 function renderRevHub() {
   var el = document.getElementById("rev-scroll");
+  var myName = getMyName();
   var all = reviews.slice().sort(function(a,b){ return a.date>b.date?-1:1; });
+  var mine = myName ? all.filter(function(r){ return r.author.toLowerCase()===myName.toLowerCase(); }) : [];
   var total = all.length;
   var avg = total ? all.reduce(function(s,r){return s+r.rating;},0)/total : 0;
   var top5 = all.filter(function(r){return r.rating===5;}).length;
@@ -898,66 +907,114 @@ function renderRevHub() {
 
   function stars(n){var s="";for(var i=1;i<=5;i++)s+='<span class="'+(i>n?"dim":"")+'">&#9733;</span>';return s;}
 
-  var cards = all.length===0
-    ? '<div class="hub-empty"><div style="font-size:44px;opacity:.15;margin-bottom:12px">&#127866;</div><div>No reviews yet. Select a pub and rate a pint!</div></div>'
-    : all.map(function(r){
-        var p = pubs.filter(function(x){return x.id===r.pubId;})[0];
-        var cats="";
-        if(r.cG!==undefined){cats='<div class="rv-cats" style="margin-bottom:9px">'
-          +'<div class="rv-cat"><div class="rv-cv">'+r.cG+'&#9733;</div><div class="rv-cl">Glass</div></div>'
-          +'<div class="rv-cat"><div class="rv-cv">'+r.cF+'&#9733;</div><div class="rv-cl">Foam</div></div>'
-          +'<div class="rv-cat"><div class="rv-cv">'+r.cT+'&#9733;</div><div class="rv-cl">Temp</div></div>'
-          +'<div class="rv-cat"><div class="rv-cv">'+r.cP+'&#9733;</div><div class="rv-cl">Pour</div></div>'
-          +'<div class="rv-cat"><div class="rv-cv">'+r.cA+'&#9733;</div><div class="rv-cl">Vibe</div></div>'
-          +'<div class="rv-cat"><div class="rv-cv">'+r.cV+'&#9733;</div><div class="rv-cl">Value</div></div>'
-          +'</div>';}
-        return '<div class="hub-card"><div class="hub-pub">'+(p?p.name:"Unknown pub")+'</div>'
-          +'<div class="rv-top"><div><div class="rv-author">'+r.author+'</div><div class="rv-date">'+r.date+'</div></div><div class="rv-stars">'+stars(r.rating)+'</div></div>'
-          +'<div class="rv-comment">&ldquo;'+r.comment+'&rdquo;</div>'+cats
-          +'<div class="chips"><span class="chip '+(r.glass?"y":"n")+'">Glass '+(r.glass?"&#x2713;":"&#x2717;")+'</span><span class="chip '+(r.foam?"y":"n")+'">Foam '+(r.foam?"&#x2713;":"&#x2717;")+'</span><span class="chip '+(r.temp?"y":"n")+'">Temp '+(r.temp?"&#x2713;":"&#x2717;")+'</span><span class="chip '+(r.pour?"y":"n")+'">Pour '+(r.pour?"&#x2713;":"&#x2717;")+'</span></div></div>';
-      }).join("");
+  function revCard(r, showPub) {
+    var p = pubs.filter(function(x){return x.id===r.pubId;})[0];
+    var cats="";
+    if(r.cG!==undefined){cats='<div class="rv-cats" style="margin-bottom:9px">'
+      +'<div class="rv-cat"><div class="rv-cv">'+r.cG+'&#9733;</div><div class="rv-cl">Glass</div></div>'
+      +'<div class="rv-cat"><div class="rv-cv">'+r.cF+'&#9733;</div><div class="rv-cl">Foam</div></div>'
+      +'<div class="rv-cat"><div class="rv-cv">'+r.cT+'&#9733;</div><div class="rv-cl">Temp</div></div>'
+      +'<div class="rv-cat"><div class="rv-cv">'+r.cP+'&#9733;</div><div class="rv-cl">Pour</div></div>'
+      +'<div class="rv-cat"><div class="rv-cv">'+r.cA+'&#9733;</div><div class="rv-cl">Vibe</div></div>'
+      +'<div class="rv-cat"><div class="rv-cv">'+r.cV+'&#9733;</div><div class="rv-cl">Value</div></div>'
+      +'</div>';}
+    return '<div class="hub-card">'
+      +(showPub?'<div class="hub-pub">'+(p?p.name:"Unknown pub")+'</div>':'')
+      +'<div class="rv-top"><div><div class="rv-author">'+r.author+'</div><div class="rv-date">'+r.date+'</div></div><div class="rv-stars">'+stars(r.rating)+'</div></div>'
+      +'<div class="rv-comment">&ldquo;'+r.comment+'&rdquo;</div>'+cats
+      +'<div class="chips"><span class="chip '+(r.glass?"y":"n")+'">Glass '+(r.glass?"&#x2713;":"&#x2717;")+'</span><span class="chip '+(r.foam?"y":"n")+'">Foam '+(r.foam?"&#x2713;":"&#x2717;")+'</span><span class="chip '+(r.temp?"y":"n")+'">Temp '+(r.temp?"&#x2713;":"&#x2717;")+'</span><span class="chip '+(r.pour?"y":"n")+'">Pour '+(r.pour?"&#x2713;":"&#x2717;")+'</span></div></div>';
+  }
 
-  el.innerHTML = '<div class="hub-top"><div class="hub-title">All Reviews</div><button class="pdf-btn" id="pdf-btn">&#128196; PDF</button></div>'
-    +'<div class="hub-grid">'
-    +'<div class="hub-stat"><div class="hub-sv">'+total+'</div><div class="hub-sl">Reviews</div></div>'
-    +'<div class="hub-stat"><div class="hub-sv">'+avg.toFixed(1)+'&#9733;</div><div class="hub-sl">Avg rating</div></div>'
-    +'<div class="hub-stat"><div class="hub-sv">'+top5+'</div><div class="hub-sl">5-star pints</div></div>'
-    +'<div class="hub-stat"><div class="hub-sv">'+Object.keys(uniqs).length+'</div><div class="hub-sl">Pubs visited</div></div>'
-    +'</div>'+cards;
-  document.getElementById("pdf-btn").addEventListener("click", exportPDF);
+  // Passport section
+  var passportHtml = '<div style="background:linear-gradient(145deg,#1e1600,#141414);border:1px solid rgba(201,168,76,.35);border-radius:20px;padding:18px;margin-bottom:16px">'
+    +'<div style="font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--gold);font-weight:700;margin-bottom:10px">&#x1F4D6; Your Pint Passport</div>'
+    +(myName
+      ? '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">'
+        +'<div><div style="font-size:20px;font-weight:800;color:var(--cream)">'+myName+'</div>'
+        +'<div style="font-size:11px;color:var(--muted);margin-top:3px">'+mine.length+' pint'+(mine.length!==1?'s':'')+' reviewed &middot; avg '+(mine.length?(mine.reduce(function(s,r){return s+r.rating;},0)/mine.length).toFixed(1):'—')+'&#9733;</div></div>'
+        +'<button onclick="localStorage.removeItem('bg3_myname');renderRevHub();" style="background:transparent;border:1px solid var(--b2);border-radius:10px;padding:6px 10px;color:var(--muted);font-size:11px;cursor:pointer">Change</button>'
+        +'</div>'
+        +(mine.length>0
+          ? '<button id="passport-pdf-btn" style="width:100%;background:var(--gold);color:#000;border:none;padding:13px;border-radius:13px;font-size:14px;font-weight:800;cursor:pointer;margin-bottom:2px">&#x1F4C4; Download My Pint Passport</button>'
+          : '<div style="font-size:12px;color:var(--muted);text-align:center;padding:8px">No reviews yet under this name</div>')
+      : '<div style="font-size:12px;color:var(--muted);margin-bottom:10px">Enter your name to track your pints and download your personal passport.</div>'
+        +'<div style="display:flex;gap:8px">'
+        +'<input id="passport-name-inp" placeholder="Your reviewer name…" style="flex:1;background:var(--s2);border:1px solid var(--b2);border-radius:10px;padding:12px;font-size:15px;color:var(--cream);outline:none;-webkit-appearance:none">'
+        +'<button id="passport-set-btn" style="background:var(--gold);color:#000;border:none;border-radius:10px;padding:12px 16px;font-size:14px;font-weight:800;cursor:pointer">Set</button>'
+        +'</div>')
+    +'</div>';
+
+  var allCardsHtml = all.length===0
+    ? '<div class="hub-empty"><div style="font-size:44px;opacity:.15;margin-bottom:12px">&#127866;</div><div>No reviews yet. Select a pub and rate a pint!</div></div>'
+    : all.map(function(r){ return revCard(r, true); }).join("");
+
+  el.innerHTML = '<div style="font-size:24px;font-weight:800;color:var(--cream);letter-spacing:-.02em;margin-bottom:14px">Reviews</div>'
+    + passportHtml
+    + '<div style="font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--gold);font-weight:700;margin-bottom:10px">All pints (' + total + ')</div>'
+    + '<div class="hub-grid">'
+    + '<div class="hub-stat"><div class="hub-sv">'+total+'</div><div class="hub-sl">Reviews</div></div>'
+    + '<div class="hub-stat"><div class="hub-sv">'+avg.toFixed(1)+'&#9733;</div><div class="hub-sl">Avg rating</div></div>'
+    + '<div class="hub-stat"><div class="hub-sv">'+top5+'</div><div class="hub-sl">5-star pints</div></div>'
+    + '<div class="hub-stat"><div class="hub-sv">'+Object.keys(uniqs).length+'</div><div class="hub-sl">Pubs visited</div></div>'
+    + '</div>'
+    + allCardsHtml;
+
+  // Bind buttons
+  var setBtn = document.getElementById("passport-set-btn");
+  if (setBtn) {
+    setBtn.addEventListener("click", function(){
+      var val = document.getElementById("passport-name-inp").value.trim();
+      if (val) { setMyName(val); renderRevHub(); }
+    });
+    var inp = document.getElementById("passport-name-inp");
+    if (inp) {
+      inp.addEventListener("keydown", function(e){ if(e.key==="Enter"&&this.value.trim()){setMyName(this.value.trim());renderRevHub();} });
+    }
+  }
+  var pdfBtn = document.getElementById("passport-pdf-btn");
+  if (pdfBtn) {
+    pdfBtn.addEventListener("click", function(){ exportPDF(myName); });
+  }
 }
+
 
 // ════════════════════════════════
 // PDF EXPORT
 // ════════════════════════════════
-function exportPDF() {
+function exportPDF(filterName) {
   var jsPDF = (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
   if (!jsPDF) { alert("PDF not available"); return; }
   var doc = new jsPDF({orientation:"portrait",unit:"mm",format:"a4"});
   var W=210,M=16,y=M;
   function chk(n){if(y+n>284){doc.addPage();y=M;}}
 
+  var isPassport = !!filterName;
+  var allRevs = reviews.slice().sort(function(a,b){return a.date>b.date?-1:1;});
+  var exportRevs = isPassport
+    ? allRevs.filter(function(r){return r.author.toLowerCase()===filterName.toLowerCase();})
+    : allRevs;
+
+  // Header
   doc.setFillColor(10,10,10);doc.rect(0,0,W,297,"F");
   doc.setFillColor(201,168,76);doc.rect(0,0,W,28,"F");
-  doc.setTextColor(0);doc.setFontSize(18);doc.setFont("helvetica","bold");
-  doc.text("Black Gold — Guinness Milano",M,13);
+  doc.setTextColor(0);doc.setFontSize(16);doc.setFont("helvetica","bold");
+  doc.text(isPassport ? filterName + "'s Pint Passport" : "Black Gold — All Reviews", M, 12);
   doc.setFontSize(8);doc.setFont("helvetica","normal");
-  doc.text("Review Report · "+new Date().toLocaleDateString("en-GB",{year:"numeric",month:"long",day:"numeric"}),M,21);
+  doc.text("Black Gold · Guinness Milano · "+new Date().toLocaleDateString("en-GB",{year:"numeric",month:"long",day:"numeric"}), M, 21);
   y=36;
 
-  var all=reviews.slice().sort(function(a,b){return a.date>b.date?-1:1;});
-  var avg=all.length?all.reduce(function(s,r){return s+r.rating;},0)/all.length:0;
-  var uniqs={};all.forEach(function(r){uniqs[r.pubId]=1;});
+  var avg=exportRevs.length?exportRevs.reduce(function(s,r){return s+r.rating;},0)/exportRevs.length:0;
+  var uniqs={};exportRevs.forEach(function(r){uniqs[r.pubId]=1;});
 
   doc.setFillColor(20,16,4);doc.roundedRect(M,y,W-M*2,16,3,3,"F");
-  [[all.length+"","reviews"],[avg.toFixed(1)+"★","avg"],[all.filter(function(r){return r.rating===5;}).length+"","5-star"],[Object.keys(uniqs).length+"","pubs"]].forEach(function(s,i){
+  [[exportRevs.length+"","pints"],[avg.toFixed(1)+"★","avg"],[exportRevs.filter(function(r){return r.rating===5;}).length+"","5-star"],[Object.keys(uniqs).length+"","pubs"]].forEach(function(s,i){
     var x=M+6+(i*42);
     doc.setTextColor(201,168,76);doc.setFontSize(11);doc.setFont("helvetica","bold");doc.text(s[0],x,y+8);
     doc.setTextColor(120,100,60);doc.setFontSize(6);doc.setFont("helvetica","normal");doc.text(s[1].toUpperCase(),x,y+13);
   });
   y+=24;
 
-  all.forEach(function(r){
+  exportRevs.forEach(function(r){
     var p=pubs.filter(function(x){return x.id===r.pubId;})[0];
     var hasC=r.cG!==undefined;
     chk(hasC?52:36);
@@ -986,8 +1043,9 @@ function exportPDF() {
 
   var pages=doc.internal.getNumberOfPages();
   for(var i=1;i<=pages;i++){doc.setPage(i);doc.setFillColor(201,168,76);doc.rect(0,290,W,7,"F");doc.setTextColor(0);doc.setFontSize(7);doc.setFont("helvetica","normal");doc.text("Black Gold — Guinness Milano",M,295);doc.text("Page "+i+"/"+pages,W-M-12,295);}
-  doc.save("black-gold-reviews.pdf");
+  doc.save(isPassport ? filterName.replace(/\s+/g,"-").toLowerCase()+"-pint-passport.pdf" : "black-gold-reviews.pdf");
 }
+
 
 // ════════════════════════════════
 // REVIEW MODAL
