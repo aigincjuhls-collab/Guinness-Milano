@@ -1,0 +1,1411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#090909">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<title>Black Gold — Guinness Milano</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --bg:#090909;--s1:#141414;--s2:#1c1c1c;--s3:#242424;
+  --gold:#c9a84c;--gold2:#ddb94e;
+  --cream:#ede0c8;--muted:#6a6a56;--cream2:#a89878;
+  --b1:rgba(201,168,76,.1);--b2:rgba(201,168,76,.18);
+  --green:#2d7a4a;--craft:#b87030;--brit:#2a4e90;
+  --safe-t:env(safe-area-inset-top,0px);
+  --safe-b:env(safe-area-inset-bottom,0px);
+}
+html,body{
+  height:100%;background:var(--bg);color:var(--cream);
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  overflow:hidden;-webkit-font-smoothing:antialiased;
+}
+/* ── SHELL ── */
+#shell{display:flex;flex-direction:column;height:100vh;height:100dvh}
+
+/* ── TOPBAR ── */
+#topbar{
+  flex-shrink:0;
+  background:rgba(9,9,9,.96);
+  backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);
+  border-bottom:1px solid var(--b2);
+  padding:calc(var(--safe-t) + 10px) 16px 10px;
+  display:flex;align-items:center;justify-content:space-between;
+}
+.tb-brand{display:flex;align-items:center;gap:9px}
+.tb-ico{font-size:22px}
+.tb-name{font-size:17px;font-weight:800;color:var(--cream);letter-spacing:-.02em;line-height:1}
+.tb-sub{font-size:10px;color:var(--gold);font-weight:600;letter-spacing:.07em;text-transform:uppercase;margin-top:1px}
+.tb-pill{
+  background:var(--gold);color:#000;border:none;
+  padding:7px 14px;border-radius:20px;font-size:12px;font-weight:800;
+  cursor:pointer;letter-spacing:.02em;
+}
+
+/* ── CONTENT ── */
+#content{flex:1;position:relative;overflow:hidden;min-height:0}
+
+/* ── SCREENS ── */
+.screen{position:absolute;inset:0;display:none;overflow:hidden}
+.screen.active{display:flex;flex-direction:column}
+
+/* ════════════════════════
+   MAP SCREEN
+════════════════════════ */
+#map-screen{position:relative}
+/* Map fills entire screen */
+#map{position:absolute;inset:0;width:100%;height:100%;z-index:1}
+
+/* Floating search bar */
+.map-search{
+  position:absolute;top:12px;left:12px;right:60px;z-index:10;
+}
+.map-search-box{
+  background:rgba(9,9,9,.93);
+  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  border:1px solid var(--b2);border-radius:14px;
+  display:flex;align-items:center;gap:9px;padding:12px 14px;
+  box-shadow:0 8px 32px rgba(0,0,0,.6);
+}
+.map-search-box input{
+  flex:1;background:transparent;border:none;outline:none;
+  color:var(--cream);font-size:15px;
+}
+.map-search-box input::placeholder{color:var(--muted)}
+.map-sico{font-size:15px;flex-shrink:0}
+
+/* Theme toggle */
+.map-theme{
+  position:absolute;top:12px;right:12px;z-index:10;
+  display:flex;flex-direction:column;gap:4px;
+}
+.mt-btn{
+  width:44px;height:44px;
+  background:rgba(9,9,9,.93);
+  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  border:1px solid var(--b2);border-radius:12px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:18px;cursor:pointer;border:none;
+  transition:background .15s;
+}
+.mt-btn.on{background:var(--gold)}
+
+/* Stats pill */
+.map-stats{
+  position:absolute;top:70px;left:12px;z-index:10;
+  background:rgba(9,9,9,.93);
+  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  border:1px solid var(--b2);border-radius:10px;
+  padding:6px 12px;font-size:11px;font-weight:700;color:var(--gold);
+}
+
+/* ── BOTTOM SHEET ── */
+#sheet{
+  position:absolute;bottom:0;left:0;right:0;z-index:20;
+  background:var(--s1);
+  border-radius:22px 22px 0 0;
+  border-top:1px solid var(--b2);
+  box-shadow:0 -12px 48px rgba(0,0,0,.7);
+  display:flex;flex-direction:column;
+  /* Peek height: show 2 cards worth + handle + cats */
+  transform:translateY(calc(100% - 230px));
+  transition:transform .32s cubic-bezier(.25,.46,.45,.94);
+  max-height:88%;
+}
+#sheet.expanded{transform:translateY(0)}
+
+.sheet-notch{
+  width:40px;height:4px;
+  background:rgba(201,168,76,.25);border-radius:2px;
+  margin:11px auto 0;cursor:pointer;flex-shrink:0;
+}
+.sheet-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:8px 14px 0;flex-shrink:0;
+}
+.sheet-title{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.sheet-cnt{font-size:12px;font-weight:700;color:var(--gold)}
+
+/* Category pills */
+.sheet-cats{
+  display:flex;gap:6px;padding:8px 14px;
+  overflow-x:auto;scrollbar-width:none;flex-shrink:0;
+}
+.sheet-cats::-webkit-scrollbar{display:none}
+.cat-pill{
+  padding:6px 13px;border-radius:20px;font-size:11px;font-weight:700;
+  border:1px solid var(--b2);background:transparent;color:var(--muted);
+  white-space:nowrap;cursor:pointer;transition:.12s;flex-shrink:0;min-height:34px;
+}
+.cat-pill.on{background:var(--gold);color:#000;border-color:var(--gold)}
+
+/* Pub list */
+#pub-list{
+  overflow-y:auto;flex:1;
+  padding:4px 12px 16px;
+  -webkit-overflow-scrolling:touch;
+  scrollbar-width:none;
+}
+#pub-list::-webkit-scrollbar{display:none}
+
+.pub-card{
+  display:flex;align-items:center;gap:12px;
+  background:var(--s2);border:1px solid var(--b1);
+  border-radius:16px;padding:13px 13px;margin-bottom:8px;
+  cursor:pointer;transition:transform .1s,opacity .1s;
+  -webkit-user-select:none;user-select:none;
+}
+.pub-card:active{transform:scale(.97);opacity:.85}
+.pub-card.sel{border-color:var(--gold);background:#1c1600}
+
+.pc-emoji{
+  width:44px;height:44px;background:var(--s3);
+  border-radius:12px;display:flex;align-items:center;
+  justify-content:center;font-size:22px;flex-shrink:0;
+}
+.pc-body{flex:1;min-width:0}
+.pc-name{
+  font-size:14px;font-weight:700;color:var(--cream);
+  line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.pc-meta{font-size:11px;color:var(--muted);margin-top:3px}
+.pc-right{flex-shrink:0;display:flex;flex-direction:column;align-items:flex-end;gap:5px}
+.pc-price{font-size:14px;font-weight:800;color:var(--gold)}
+.pc-rat{
+  font-size:10px;font-weight:700;color:var(--gold);
+  background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.22);
+  border-radius:7px;padding:2px 7px;
+}
+.pc-tag{
+  font-size:8px;font-weight:800;text-transform:uppercase;
+  letter-spacing:.04em;padding:2px 6px;border-radius:4px;
+  border:1px solid rgba(201,168,76,.25);color:var(--muted);
+}
+.no-pubs{text-align:center;padding:32px 20px;color:var(--muted);font-size:13px}
+
+/* ════════════════════════
+   DETAIL SCREEN
+════════════════════════ */
+#det-screen{background:var(--bg)}
+#det-scroll{overflow-y:auto;flex:1;-webkit-overflow-scrolling:touch;padding-bottom:calc(var(--safe-b) + 90px)}
+
+.det-back{
+  padding:12px 16px 4px;display:flex;align-items:center;
+}
+.det-back-btn{
+  background:none;border:none;color:var(--gold);
+  font-size:17px;font-weight:600;cursor:pointer;
+  display:flex;align-items:center;gap:4px;
+  padding:4px 0;min-height:44px;
+}
+
+.det-hero{
+  margin:0 14px 0;
+  background:linear-gradient(145deg,#1e1600 0%,var(--s1) 100%);
+  border:1px solid var(--b2);border-radius:20px;padding:16px;
+  margin-bottom:10px;
+}
+.det-badges{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px}
+.badge{
+  font-size:9px;font-weight:800;text-transform:uppercase;
+  letter-spacing:.05em;padding:3px 8px;border-radius:5px;border:1px solid;
+}
+.ba{color:var(--cream2);border-color:var(--b2)}
+.bi{color:#5dba7d;border-color:rgba(45,122,74,.35);background:rgba(45,122,74,.1)}
+.bc{color:#d4935a;border-color:rgba(184,112,48,.35);background:rgba(184,112,48,.1)}
+.bb{color:#6a95d8;border-color:rgba(42,78,144,.35);background:rgba(42,78,144,.1)}
+.bl{color:#aaa;border-color:rgba(80,80,80,.35);background:rgba(80,80,80,.1)}
+.bg{color:var(--gold);border-color:rgba(201,168,76,.3);background:rgba(201,168,76,.08)}
+.det-name{font-size:24px;font-weight:800;color:var(--cream);letter-spacing:-.02em;line-height:1.15;margin-bottom:4px}
+.det-addr{font-size:12px;color:var(--muted);margin-bottom:14px}
+.det-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.ds{background:rgba(0,0,0,.5);border:1px solid var(--b1);border-radius:12px;padding:10px;text-align:center}
+.ds-v{font-size:18px;font-weight:800;color:var(--gold)}
+.ds-l{font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-top:2px}
+
+.det-section{
+  background:var(--s1);border:1px solid var(--b1);
+  border-radius:18px;margin:0 14px 10px;overflow:hidden;
+}
+.det-section-title{
+  font-size:10px;text-transform:uppercase;letter-spacing:.1em;
+  color:var(--gold);font-weight:700;padding:13px 14px 9px;
+}
+.q-row{padding:3px 14px 9px}
+.q-top{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:4px}
+.q-pct{color:var(--gold);font-weight:700}
+.q-bar{height:4px;background:var(--s3);border-radius:2px;overflow:hidden}
+.q-fill{height:100%;background:linear-gradient(90deg,#6a5018,var(--gold));border-radius:2px}
+.n2-pill{
+  margin:0 14px 13px;
+  background:var(--s2);border:1px solid var(--b1);border-radius:9px;
+  padding:9px 13px;display:flex;justify-content:space-between;
+  font-size:11px;color:var(--muted);
+}
+.n2-v{color:var(--gold);font-weight:700}
+
+.det-desc{font-size:13px;color:rgba(237,224,200,.65);line-height:1.7;padding:0 14px 14px}
+.det-links{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:0 14px 14px}
+.det-link{
+  display:flex;align-items:center;justify-content:center;gap:6px;
+  padding:13px;background:var(--s2);border:1px solid var(--b1);
+  border-radius:12px;text-decoration:none;font-size:13px;
+  font-weight:600;color:var(--cream2);min-height:48px;
+}
+
+.rev-head{display:flex;justify-content:space-between;align-items:center;padding:4px 14px 8px}
+.rev-head-t{font-size:17px;font-weight:800;color:var(--cream)}
+.rate-btn{
+  background:var(--gold);color:#000;border:none;
+  padding:10px 16px;border-radius:14px;font-size:13px;font-weight:800;
+  cursor:pointer;min-height:44px;
+}
+
+.rev-card{
+  background:var(--s2);border:1px solid var(--b1);
+  border-radius:14px;padding:14px;margin:0 14px 10px;
+}
+.rv-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:7px}
+.rv-author{font-size:14px;font-weight:700;color:var(--cream)}
+.rv-date{font-size:10px;color:var(--muted);margin-top:2px}
+.rv-stars{color:var(--gold);font-size:15px;letter-spacing:1px}
+.rv-stars .dim{color:var(--s3)}
+.rv-comment{font-size:13px;color:rgba(237,224,200,.58);line-height:1.7;font-style:italic;margin-bottom:10px}
+.rv-cats{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-bottom:9px}
+.rv-cat{background:var(--s3);border:1px solid var(--b1);border-radius:9px;padding:8px;text-align:center}
+.rv-cv{font-size:15px;font-weight:800;color:var(--gold)}
+.rv-cl{font-size:8px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-top:2px}
+.chips{display:flex;flex-wrap:wrap;gap:4px}
+.chip{font-size:9px;padding:3px 7px;border-radius:7px;border:1px solid}
+.chip.y{color:var(--gold);border-color:rgba(201,168,76,.3);background:rgba(201,168,76,.08)}
+.chip.n{color:var(--muted);border-color:var(--b1)}
+.rev-empty{text-align:center;padding:28px;color:var(--muted);font-size:13px;margin:0 14px}
+
+/* ════════════════════════
+   REVIEWS SCREEN
+════════════════════════ */
+#rev-screen{background:var(--bg)}
+#rev-scroll{overflow-y:auto;flex:1;-webkit-overflow-scrolling:touch;padding:16px;padding-bottom:calc(var(--safe-b) + 90px)}
+.hub-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+.hub-title{font-size:24px;font-weight:800;color:var(--cream);letter-spacing:-.02em}
+.pdf-btn{
+  background:var(--gold);color:#000;border:none;
+  padding:10px 16px;border-radius:14px;font-size:13px;font-weight:800;
+  cursor:pointer;min-height:44px;display:flex;align-items:center;gap:6px;
+}
+.hub-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px}
+.hub-stat{background:var(--s1);border:1px solid var(--b2);border-radius:14px;padding:14px;text-align:center}
+.hub-sv{font-size:28px;font-weight:800;color:var(--gold)}
+.hub-sl{font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-top:4px}
+.hub-card{background:var(--s1);border:1px solid var(--b2);border-radius:16px;padding:15px;margin-bottom:10px}
+.hub-pub{font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--gold);font-weight:700;margin-bottom:6px}
+.hub-empty{text-align:center;padding:60px 20px;color:var(--muted)}
+
+/* ════════════════════════
+   POUR SCHOOL
+════════════════════════ */
+#pour-screen{background:var(--bg);overflow-y:auto;-webkit-overflow-scrolling:touch;align-items:center;padding:16px;padding-bottom:calc(var(--safe-b) + 90px)}
+.pour-card{
+  background:var(--s1);border:1px solid var(--b2);
+  border-radius:22px;padding:22px;width:100%;max-width:440px;
+}
+.pc-eye{font-size:9px;text-transform:uppercase;letter-spacing:.14em;color:var(--gold);font-weight:700;margin-bottom:4px}
+.pc-h{font-size:24px;font-weight:800;color:var(--cream);letter-spacing:-.02em;margin-bottom:5px}
+.pc-p{font-size:13px;color:var(--muted);line-height:1.65;margin-bottom:14px}
+.pour-steps{display:flex;flex-direction:column;gap:6px;margin-bottom:16px}
+.ps{display:flex;gap:10px;background:var(--s2);border:1px solid var(--b1);border-radius:11px;padding:11px}
+.ps-n{width:20px;height:20px;border-radius:50%;background:rgba(201,168,76,.15);border:1px solid rgba(201,168,76,.3);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--gold);flex-shrink:0}
+.ps-t{font-size:12px;color:var(--muted);line-height:1.5}
+.pour-name{
+  width:100%;background:var(--s2);border:1px solid var(--b2);
+  border-radius:11px;padding:13px 14px;font-size:16px;
+  outline:none;color:var(--cream);margin-bottom:12px;-webkit-appearance:none;
+}
+.pour-name:focus{border-color:var(--gold)}
+.pour-name::placeholder{color:var(--muted)}
+.pour-btn{
+  width:100%;background:var(--gold);color:#000;border:none;
+  padding:16px;border-radius:14px;font-size:16px;font-weight:800;
+  cursor:pointer;text-transform:uppercase;letter-spacing:.05em;
+  -webkit-appearance:none;min-height:56px;user-select:none;-webkit-user-select:none;
+  transition:background .15s,box-shadow .15s;
+}
+.pour-btn:disabled{background:var(--s3);color:var(--muted)}
+.pour-btn.pouring{background:#1a1000;color:var(--gold);box-shadow:0 0 0 4px rgba(201,168,76,.25)}
+.glass-wrap{display:flex;justify-content:center;padding:16px 0}
+.glass{position:relative;width:80px;height:155px;transition:transform .3s}
+.glass-body{
+  position:absolute;inset:0;
+  border:2.5px solid rgba(200,180,130,.22);border-top:none;
+  border-radius:0 0 18px 18px;overflow:hidden;
+  display:flex;flex-direction:column;justify-content:flex-end;
+}
+.g-shine{position:absolute;top:8px;left:5px;width:3px;bottom:8px;background:rgba(255,255,255,.1);border-radius:2px}
+.g-foam{background:#cdc3a8;flex-shrink:0;transition:height .07s}
+.g-beer{flex-shrink:0;transition:height .07s}
+.g-p1{background:#1c0e06}.g-settle{background:linear-gradient(to bottom,#381a08,#070605)}.g-p2{background:#070605}
+.g-target{position:absolute;left:0;right:0;border-top:1.5px dashed rgba(201,168,76,.5);z-index:10;display:flex;justify-content:center}
+.g-target-lbl{font-size:7px;font-weight:700;color:var(--gold);background:var(--s1);padding:1px 4px;border:1px solid rgba(201,168,76,.3);border-radius:3px;margin-top:-6px}
+.settle-bar{background:var(--s2);border:1px solid var(--b1);border-radius:11px;padding:12px 14px;margin:10px 0}
+.sb-head{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:5px}
+.sb-bg{height:5px;background:var(--s3);border-radius:3px;overflow:hidden}
+.sb-fill{height:100%;background:var(--gold);border-radius:3px;transition:width .12s}
+.pour-msg{font-size:13px;color:var(--muted);background:var(--s2);border:1px solid var(--b1);border-radius:11px;padding:11px 14px;margin:10px 0;min-height:40px;text-align:center;line-height:1.5}
+.pour-step-lbl{font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--gold);font-weight:700}
+.pour-abort{float:right;font-size:11px;color:var(--muted);background:none;border:none;cursor:pointer;text-decoration:underline;padding:0;min-height:44px}
+.results{text-align:center;margin-bottom:16px}
+.results-trophy{font-size:56px;display:block;margin-bottom:8px}
+.results-score{font-size:48px;font-weight:800;color:var(--gold)}
+.results-rank{display:inline-block;font-size:13px;color:var(--gold);background:rgba(201,168,76,.1);border:1px solid rgba(201,168,76,.25);padding:7px 18px;border-radius:20px;margin-top:8px;font-weight:700}
+.score-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
+.score-box{background:var(--s2);border:1px solid var(--b1);border-radius:11px;padding:11px;text-align:center}
+.score-lbl{font-size:9px;text-transform:uppercase;color:var(--muted);margin-bottom:3px}
+.score-val{font-size:20px;font-weight:800;color:var(--gold)}
+.score-sub{font-size:9px;color:var(--muted);margin-top:2px}
+
+/* ── TAB BAR ── */
+#tabbar{
+  flex-shrink:0;
+  background:rgba(9,9,9,.97);
+  backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);
+  border-top:1px solid var(--b2);
+  display:flex;
+  padding-bottom:var(--safe-b);
+}
+.tab{
+  flex:1;display:flex;flex-direction:column;align-items:center;
+  padding:10px 4px;cursor:pointer;border:none;background:transparent;
+  min-height:56px;transition:opacity .1s;
+}
+.tab:active{opacity:.6}
+.tab-ico{font-size:24px;line-height:1;margin-bottom:3px;transition:transform .15s}
+.tab-lbl{font-size:10px;font-weight:600;color:var(--muted);letter-spacing:.02em;transition:color .15s}
+.tab.on .tab-lbl{color:var(--gold)}
+.tab.on .tab-ico{transform:scale(1.1)}
+
+/* ── MODALS ── */
+.overlay{
+  display:none;position:fixed;inset:0;z-index:1000;
+  background:rgba(0,0,0,.8);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  align-items:flex-end;justify-content:center;
+}
+.overlay.show{display:flex}
+.modal{
+  background:var(--s1);border:1px solid var(--b2);
+  border-radius:24px 24px 0 0;width:100%;max-width:600px;
+  max-height:93vh;display:flex;flex-direction:column;
+  box-shadow:0 -12px 48px rgba(0,0,0,.8);
+}
+.modal-handle{width:36px;height:4px;background:rgba(201,168,76,.22);border-radius:2px;margin:12px auto 8px;flex-shrink:0}
+.modal-hd{padding:0 18px 13px;border-bottom:1px solid var(--b2);flex-shrink:0}
+.modal-eye{font-size:9px;text-transform:uppercase;letter-spacing:.14em;color:var(--gold);font-weight:700;margin-bottom:3px}
+.modal-title{font-size:19px;font-weight:800;color:var(--cream)}
+.modal-body{padding:16px 18px;overflow-y:auto;flex:1;-webkit-overflow-scrolling:touch}
+.m-lbl{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-weight:700;margin-bottom:6px}
+.m-inp{
+  width:100%;background:var(--s2);border:1px solid var(--b2);
+  border-radius:11px;padding:13px 14px;font-size:16px;
+  color:var(--cream);outline:none;-webkit-appearance:none;transition:border-color .15s;
+}
+.m-inp:focus{border-color:var(--gold)}
+.m-inp::placeholder{color:var(--muted)}
+textarea.m-inp{resize:none}
+.m-field{margin-bottom:14px}
+.m-row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.m-err{background:rgba(220,60,60,.1);border:1px solid rgba(220,60,60,.3);border-radius:10px;padding:10px 13px;font-size:13px;color:#e05555;margin-bottom:13px;display:none}
+.m-chk{display:flex;align-items:center;gap:10px;cursor:pointer;font-size:14px;color:var(--cream2);background:none;border:none;text-align:left;margin-bottom:10px;padding:0;min-height:48px}
+.m-chkbox{width:24px;height:24px;border:2px solid var(--b2);border-radius:7px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:15px;transition:.1s}
+.m-chkbox.on{background:var(--gold);border-color:var(--gold);color:#000}
+.modal-ft{padding:12px 18px;border-top:1px solid var(--b2);display:flex;gap:10px;flex-shrink:0;padding-bottom:calc(var(--safe-b) + 12px)}
+.btn-cancel{flex:1;padding:14px;border:1px solid var(--b2);border-radius:14px;font-size:16px;font-weight:700;cursor:pointer;background:transparent;color:var(--muted);-webkit-appearance:none;min-height:52px}
+.btn-ok{flex:2;background:var(--gold);color:#000;border:none;padding:14px;border-radius:14px;font-size:16px;font-weight:800;cursor:pointer;-webkit-appearance:none;min-height:52px}
+
+/* Stars */
+.star-row{display:flex;align-items:center;gap:8px}
+.star-lbl{font-size:14px;color:var(--muted);min-width:40px;font-weight:600}
+.star-btns{display:flex;gap:2px}
+.sstar{background:none;border:none;cursor:pointer;font-size:34px;color:var(--s3);padding:0;min-width:48px;min-height:48px;display:flex;align-items:center;justify-content:center;transition:.1s}
+.sstar.on{color:var(--gold)}
+.sstar:active{transform:scale(1.3)}
+
+/* Harp sliders */
+.harp-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+.harp-cell{background:var(--s2);border:1px solid var(--b2);border-radius:13px;padding:12px}
+.harp-lbl{font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:700;margin-bottom:9px}
+.harp-body{display:flex;flex-direction:column;align-items:center;gap:8px}
+.harp-stage{width:64px;height:64px;display:flex;align-items:center;justify-content:center;transition:transform .15s}
+.harp-range{width:100%;-webkit-appearance:none;appearance:none;height:6px;background:var(--s3);border-radius:3px;outline:none;cursor:pointer}
+.harp-range::-webkit-slider-thumb{-webkit-appearance:none;width:26px;height:26px;border-radius:50%;background:var(--gold);border:3px solid var(--bg);box-shadow:0 0 8px rgba(201,168,76,.5)}
+.harp-val{font-size:16px;font-weight:800;color:var(--gold)}
+
+/* Audit */
+.audit-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;background:var(--s2);border:1px solid var(--b1);border-radius:13px;padding:12px;margin-bottom:14px}
+.audit-item{display:flex;align-items:center;gap:9px;font-size:14px;cursor:pointer;background:none;border:none;color:var(--cream2);text-align:left;min-height:48px;padding:0}
+
+/* Leaflet overrides */
+.leaflet-control-zoom a{background:rgba(9,9,9,.92)!important;color:var(--cream)!important;border-color:var(--b2)!important}
+.leaflet-control-zoom a:hover{background:var(--gold)!important;color:#000!important}
+.leaflet-popup-content-wrapper{background:var(--s1);border:1px solid var(--b2);border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.6)}
+.leaflet-popup-content{margin:10px 14px;color:var(--cream)}
+.leaflet-popup-tip{background:var(--s1)}
+
+@keyframes ping{0%{transform:scale(1);opacity:.25}100%{transform:scale(2.2);opacity:0}}
+</style>
+</head>
+<body>
+<div id="shell">
+
+<!-- TOPBAR -->
+<div id="topbar">
+  <div class="tb-brand">
+    <span class="tb-ico">🍺</span>
+    <div><div class="tb-name">Black Gold</div><div class="tb-sub">Guinness Milano</div></div>
+  </div>
+  <div id="topbar-action">
+    <button class="tb-pill" id="btn-add-pub">+ Add pub</button>
+  </div>
+</div>
+
+<!-- CONTENT -->
+<div id="content">
+
+  <!-- MAP SCREEN -->
+  <div class="screen active" id="map-screen">
+    <div id="map"></div>
+    <div class="map-search">
+      <div class="map-search-box">
+        <span class="map-sico">🔍</span>
+        <input id="search-inp" placeholder="Search pub, area, type…" autocomplete="off" autocorrect="off">
+      </div>
+    </div>
+    <div class="map-theme">
+      <button class="mt-btn on" id="theme-light">☀️</button>
+      <button class="mt-btn" id="theme-dark">🌙</button>
+    </div>
+    <div class="map-stats" id="map-stats">— pubs</div>
+    <div id="sheet">
+      <div class="sheet-notch" id="sheet-notch"></div>
+      <div class="sheet-header">
+        <span class="sheet-title">Pubs nearby</span>
+        <span class="sheet-cnt" id="sheet-cnt"></span>
+      </div>
+      <div class="sheet-cats" id="sheet-cats">
+        <button class="cat-pill on" data-cat="All">🍻 All</button>
+        <button class="cat-pill" data-cat="irish">🇮🇪 Irish</button>
+        <button class="cat-pill" data-cat="british">🇬🇧 British</button>
+        <button class="cat-pill" data-cat="craft">🍺 Craft</button>
+        <button class="cat-pill" data-cat="casual">☕ Local</button>
+      </div>
+      <div id="pub-list"></div>
+    </div>
+  </div>
+
+  <!-- DETAIL SCREEN -->
+  <div class="screen" id="det-screen">
+    <div id="det-scroll"></div>
+  </div>
+
+  <!-- REVIEWS SCREEN -->
+  <div class="screen" id="rev-screen">
+    <div id="rev-scroll"></div>
+  </div>
+
+  <!-- POUR SCHOOL -->
+  <div class="screen" id="pour-screen">
+    <div class="pour-card" id="pour-card"></div>
+  </div>
+
+</div>
+
+<!-- TAB BAR -->
+<div id="tabbar">
+  <button class="tab on" data-screen="map" id="tab-map">
+    <span class="tab-ico">🗺️</span><span class="tab-lbl">Map</span>
+  </button>
+  <button class="tab" data-screen="reviews" id="tab-reviews">
+    <span class="tab-ico">📋</span><span class="tab-lbl">Reviews</span>
+  </button>
+  <button class="tab" data-screen="pour" id="tab-pour">
+    <span class="tab-ico">🔥</span><span class="tab-lbl">Pour School</span>
+  </button>
+</div>
+
+</div><!-- #shell -->
+
+<!-- ADD PUB MODAL -->
+<div class="overlay" id="modal-add">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-hd"><div class="modal-eye">New source</div><div class="modal-title">Add a pub</div></div>
+    <div class="modal-body">
+      <div class="m-err" id="add-err"></div>
+      <div class="m-field"><label class="m-lbl">Name *</label><input class="m-inp" id="np-name" placeholder="e.g. Paddy's Tavern" autocomplete="off"></div>
+      <div class="m-field"><label class="m-lbl">Address *</label><input class="m-inp" id="np-addr" placeholder="Via ... Milan"></div>
+      <div class="m-row2" style="margin-bottom:14px">
+        <div><div class="m-lbl">Area</div><select class="m-inp" id="np-area" style="padding:13px 10px"><option>Porta Romana</option><option>Navigli</option><option>Brera</option><option>Isola / Cenisio</option><option>Sempione</option><option>Duomo</option><option>Loreto</option><option>Maciachini</option><option>Lambrate</option><option>Forlanini</option><option>Citta Studi</option><option>Chinatown</option><option>Porta Nuova</option><option>Porta Genova</option><option>Porta Ticinese</option></select></div>
+        <div><div class="m-lbl">Type</div><select class="m-inp" id="np-type" style="padding:13px 10px"><option value="irish">Irish</option><option value="british">British</option><option value="craft">Craft</option><option value="casual">Local</option></select></div>
+      </div>
+      <div class="m-field"><label class="m-lbl">Price per pint (€)</label><input class="m-inp" id="np-price" type="number" step="0.5" min="4" max="15" value="7.5" inputmode="decimal"></div>
+      <div class="m-row2" style="margin-bottom:14px">
+        <div><div class="m-lbl">Latitude</div><input class="m-inp" id="np-lat" value="45.4642" inputmode="decimal"></div>
+        <div><div class="m-lbl">Longitude</div><input class="m-inp" id="np-lng" value="9.1900" inputmode="decimal"></div>
+      </div>
+      <div style="margin-bottom:14px">
+        <button class="m-chk" id="np-g-btn"><div class="m-chkbox on" id="np-g-box">✓</div><span>Serves Guinness on draught</span></button>
+        <button class="m-chk" id="np-cert-btn"><div class="m-chkbox" id="np-cert-box"></div><span>Official Quality Partner 🏅</span></button>
+      </div>
+      <div class="m-field"><label class="m-lbl">Description</label><textarea class="m-inp" id="np-desc" rows="3" placeholder="Atmosphere, tips, hours…"></textarea></div>
+      <div class="m-row2">
+        <div class="m-field"><label class="m-lbl">Phone</label><input class="m-inp" id="np-phone" placeholder="+39 02…" inputmode="tel"></div>
+        <div class="m-field"><label class="m-lbl">Website</label><input class="m-inp" id="np-web" placeholder="https://…" inputmode="url"></div>
+      </div>
+    </div>
+    <div class="modal-ft">
+      <button class="btn-cancel" id="add-cancel">Cancel</button>
+      <button class="btn-ok" id="add-ok">🍺 Add pub</button>
+    </div>
+  </div>
+</div>
+
+<!-- REVIEW MODAL -->
+<div class="overlay" id="modal-rev">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-hd"><div class="modal-eye">Guinness Audit</div><div class="modal-title" id="rev-modal-title">Rate this pint</div></div>
+    <div class="modal-body">
+      <div class="m-err" id="rev-err"></div>
+      <div class="m-field"><label class="m-lbl">Your name</label><input class="m-inp" id="r-name" placeholder="e.g. Thirsty Dubliner" maxlength="30" autocomplete="off"></div>
+      <div class="m-field">
+        <label class="m-lbl">Overall rating</label>
+        <div class="star-row">
+          <span class="star-lbl"><span id="star-num">5</span>/5</span>
+          <div class="star-btns" id="star-btns"></div>
+        </div>
+      </div>
+      <div class="m-field">
+        <label class="m-lbl">Score each category — drag the harp</label>
+        <div class="harp-grid" id="harp-grid"></div>
+      </div>
+      <div class="m-field">
+        <label class="m-lbl">Pint checklist</label>
+        <div class="audit-grid">
+          <button class="audit-item" id="aud-glass"><div class="m-chkbox on" id="aud-glass-box">✓</div><span>Tulip glass</span></button>
+          <button class="audit-item" id="aud-foam"><div class="m-chkbox on" id="aud-foam-box">✓</div><span>Creamy head</span></button>
+          <button class="audit-item" id="aud-temp"><div class="m-chkbox on" id="aud-temp-box">✓</div><span>Right temp</span></button>
+          <button class="audit-item" id="aud-pour"><div class="m-chkbox on" id="aud-pour-box">✓</div><span>Two-part pour</span></button>
+        </div>
+      </div>
+      <div class="m-field"><label class="m-lbl">Comment</label><textarea class="m-inp" id="r-comment" rows="3" placeholder="How was the pint? Foam, taste, vibe…"></textarea></div>
+    </div>
+    <div class="modal-ft">
+      <button class="btn-cancel" id="rev-cancel">Cancel</button>
+      <button class="btn-ok" id="rev-ok">✨ Save review</button>
+    </div>
+  </div>
+</div>
+
+
+<script>
+// ════════════════════════════════
+// SVG HARP
+// ════════════════════════════════
+function harp(size, op) {
+  op = Math.max(0.15, Math.min(1, op));
+  return '<svg width="' + size + '" height="' + size + '" viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg"><g opacity="' + op + '"><rect x="22" y="66" width="36" height="7" rx="3" fill="#c9a84c"/><rect x="22" y="10" width="6" height="60" rx="3" fill="#c9a84c"/><path d="M22 10 Q40 2 58 16" stroke="#c9a84c" stroke-width="5" fill="none" stroke-linecap="round"/><path d="M58 16 Q68 40 58 70" stroke="#c9a84c" stroke-width="5" fill="none" stroke-linecap="round"/><line x1="28" y1="18" x2="58" y2="22" stroke="#c9a84c" stroke-width="1.5"/><line x1="28" y1="27" x2="58" y2="30" stroke="#c9a84c" stroke-width="1.5"/><line x1="28" y1="36" x2="58" y2="38" stroke="#c9a84c" stroke-width="1.5"/><line x1="28" y1="45" x2="58" y2="46" stroke="#c9a84c" stroke-width="1.5"/><line x1="28" y1="54" x2="58" y2="55" stroke="#c9a84c" stroke-width="1.5"/><line x1="28" y1="62" x2="58" y2="62" stroke="#c9a84c" stroke-width="1.5"/></g></svg>';
+}
+
+// ════════════════════════════════
+// DATA
+// ════════════════════════════════
+var PUBS = [
+  {id:"pogue",name:"Pogue Mahone's Irish Pub",addr:"Via Salmini 1, Porta Romana",lat:45.45283,lng:9.20138,area:"Porta Romana",price:7.5,rating:4.8,revCount:3,desc:"Widely regarded as the most authentic Irish pub in Milan. Dark wood, warm lighting, impeccable tap system. Both Guinness and Murphy's poured to ritual precision. The two-part 119-second pour is observed religiously. Closed Sundays.",official:true,guinness:true,type:"irish",phone:"+39 02 5830 9712",web:"https://www.facebook.com/poguemahonesmilano",c:{g:100,f:100,t:95,p:100}},
+  {id:"mulligans",name:"Mulligans Irish Pub & Whisky Bar",addr:"Via Govone 28, Isola",lat:45.4897,lng:9.1719,area:"Isola / Cenisio",price:7.2,rating:4.6,revCount:2,desc:"Serving Irish stouts since 1993. Vintage beer signs, great whiskey selection. WARNING: table reservations required even for a quick pint at the bar.",official:true,guinness:true,type:"irish",phone:"+39 02 0997 4886",web:"http://www.mulliganspub.it",c:{g:95,f:95,t:100,p:90}},
+  {id:"harp",name:"Guinness Harp Pub",addr:"Piazza Leonardo da Vinci 10, Città Studi",lat:45.4781,lng:9.2272,area:"Città Studi",price:7.0,rating:4.5,revCount:2,desc:"Established 1976. A legendary institution near Politecnico di Milano. Superb stout for students and academics. CLOSED Saturday and Sunday.",official:true,guinness:true,type:"irish",phone:"+39 02 3668 6194",c:{g:100,f:90,t:95,p:90}},
+  {id:"wizard",name:"Wizard Pub",addr:"Ripa di Porta Ticinese 23, Navigli",lat:45.4504,lng:9.1693,area:"Navigli",price:7.2,rating:4.8,revCount:2,desc:"One reviewer calls it 'one of the best pints of Guinness outside Ireland.' Rock music, huge selection. Closed Monday.",official:true,guinness:true,type:"irish",phone:"+39 02 8907 8035",c:{g:100,f:100,t:95,p:100}},
+  {id:"patricks",name:"Crazy Patrick's Irish Pub",addr:"Via Zante 1, Forlanini",lat:45.4572,lng:9.2449,area:"Forlanini",price:7.0,rating:4.6,revCount:2,desc:"Classic local gem in east Milan. Guinness praised enthusiastically by regulars. Good food, friendly staff. Closed Monday.",official:true,guinness:true,type:"irish",phone:"+39 375 102 6428",c:{g:90,f:95,t:90,p:90}},
+  {id:"oconnell",name:"O'Connell Irish Pub",addr:"Via Brera 3, Brera",lat:45.4702,lng:9.1878,area:"Brera",price:7.8,rating:4.1,revCount:2,desc:"Traditional Irish atmosphere in upscale Brera. Sports on TV, Guinness confirmed. Premier League and Champions League shown.",official:true,guinness:true,type:"irish",phone:"+39 02 7209 4888",c:{g:95,f:90,t:90,p:85}},
+  {id:"saints",name:"The Saints And The Scholars",addr:"Via Govone 23, Isola",lat:45.4895,lng:9.1721,area:"Isola / Cenisio",price:6.2,rating:4.3,revCount:2,desc:"Unpretentious Irish pub next to Mulligans. Only €5 per pint on some nights. Friendly local vibe. Closed Monday.",official:false,guinness:true,type:"irish",phone:"+39 02 3670 7810",c:{g:80,f:80,t:90,p:80}},
+  {id:"murphys",name:"Murphy's Law Pub",addr:"Via Montevideo 3, Porta Genova",lat:45.455,lng:9.1665,area:"Porta Genova",price:7.2,rating:3.9,revCount:2,desc:"Irish pub in Porta Genova area. Murphy's and Guinness on tap. Rugby, 6 Nations and Premier League on screen.",official:true,guinness:true,type:"irish",phone:"+39 02 8324 2151",c:{g:90,f:90,t:90,p:90}},
+  {id:"tin",name:"Tin Whistle Pub",addr:"Via Lodovico il Moro 55, Navigli",lat:45.4452,lng:9.1446,area:"Navigli",price:6.5,rating:4.4,revCount:2,desc:"Charming Irish pub along the canal. Kilkenny and Guinness on tap. Cosy atmosphere, good craic. Closed Sundays.",official:false,guinness:true,type:"irish",phone:"+39 02 813 7670",c:{g:80,f:80,t:85,p:80}},
+  {id:"mahones",name:"Mahone's Restaurant",addr:"Corso Lodi 4, Porta Romana",lat:45.451,lng:9.2036,area:"Porta Romana",price:7.5,rating:4.3,revCount:2,desc:"Sister venue of Pogue Mahone's. Guaranteed top-quality Guinness. Full Irish food menu alongside the pints.",official:true,guinness:true,type:"irish",phone:"+39 02 6666 9980",c:{g:90,f:95,t:90,p:90}},
+  {id:"friends",name:"The Friends Pub",addr:"Viale Monte Santo 12, Porta Nuova",lat:45.4792,lng:9.1961,area:"Porta Nuova",price:7.5,rating:4.4,revCount:2,desc:"Known for 'birramisu' — tiramisu soaked in Guinness. The stout itself is excellent, nitrogenated and silky smooth.",official:true,guinness:true,type:"british",phone:"+39 02 2900 5315",c:{g:90,f:90,t:95,p:90}},
+  {id:"cheers",name:"Cheers Pub",addr:"Via Casoretto 8, Loreto",lat:45.4886,lng:9.2255,area:"Loreto",price:6.5,rating:4.4,revCount:2,desc:"Open until 02:00 every single night. Cheapest pub on this list. Football on all screens, great atmosphere late.",official:false,guinness:true,type:"british",phone:"+39 02 3656 7830",c:{g:80,f:80,t:90,p:80}},
+  {id:"ghost",name:"The Ghost Pub",addr:"Piazzale Maciachini 10",lat:45.4985,lng:9.1864,area:"Maciachini",price:7.0,rating:4.2,revCount:2,desc:"Reliable British pub in north Milan. Good dark stout on tap. Open until 01:30, friendly regulars.",official:false,guinness:true,type:"british",c:{g:85,f:80,t:90,p:80}},
+  {id:"mindgap",name:"Mind The Gap",addr:"Via Curtatone 5, Porta Romana",lat:45.4567,lng:9.2025,area:"Porta Romana",price:7.0,rating:4.3,revCount:2,desc:"English sports bar with darts and pool. The Guinness dome is properly creamy. Every sport imaginable on screen.",official:false,guinness:true,type:"british",phone:"+39 02 8076 4334",c:{g:85,f:80,t:90,p:85}},
+  {id:"football",name:"The Football Pub",addr:"Via Valpetrosa 5, Duomo",lat:45.462,lng:9.1854,area:"Duomo",price:8.0,rating:4.2,revCount:2,desc:"Steps from the Duomo. Guinness confirmed but some complain about wrong glass during busy match nights. Very central.",official:false,guinness:true,type:"british",phone:"+39 02 864464",c:{g:40,f:80,t:85,p:75}},
+  {id:"capetown",name:"Cape Town Cafe",addr:"Via Vigevano 3, Navigli",lat:45.4527,lng:9.1756,area:"Navigli",price:7.2,rating:4.3,revCount:2,desc:"Lively bar by the Navigli canals. Guinness confirmed and properly nitrogenated. Friendly owner, great aperitivo vibe.",official:false,guinness:true,type:"casual",phone:"+39 02 8940 3053",c:{g:80,f:85,t:90,p:80}},
+  {id:"henrys",name:"Henry's Cafe",addr:"Viale Col di Lana 4, Porta Ticinese",lat:45.4521,lng:9.182,area:"Porta Ticinese",price:7.0,rating:4.2,revCount:2,desc:"Sells Guinness but reviewers note it's poured too fast — excess foam. Sports on TV. Casual neighbourhood bar.",official:false,guinness:true,type:"casual",c:{g:85,f:60,t:90,p:70}},
+  {id:"bbb",name:"Bere Buona Birra",addr:"Via Adige 13, Lodi",lat:45.448,lng:9.2053,area:"Lodi / Porta Romana",price:7.0,rating:4.7,revCount:2,desc:"Best craft beer bar in Milan. No standard Guinness, but rotating Belgian and Italian stouts of far superior quality. The owner is a genuine beer geek. Closed Tuesdays.",official:false,guinness:false,type:"craft",phone:"+39 02 8739 4371",web:"http://www.berebuonabirra.com",c:{g:90,f:95,t:100,p:90}},
+  {id:"buttiga",name:"Buttiga Beer Room",addr:"Via Sarpi 64, Chinatown",lat:45.481,lng:9.1703,area:"Chinatown",price:6.5,rating:4.6,revCount:2,desc:"Brewery taproom in Chinatown. Has served real ale on draught — extremely rare in Italy. Cosy, outdoor seating.",official:false,guinness:false,type:"craft",phone:"+39 351 962 5706",c:{g:85,f:80,t:90,p:80}},
+  {id:"navigli",name:"Navigli Craft Beer",addr:"Alzaia Naviglio Grande 44",lat:45.4513,lng:9.172,area:"Navigli",price:7.5,rating:4.6,revCount:2,desc:"10+ rotating taps with craft stouts along the scenic Naviglio Grande. Great canalside atmosphere, knowledgeable staff.",official:false,guinness:false,type:"craft",c:{g:90,f:90,t:95,p:85}},
+  {id:"scott",name:"Scott Duff Pub",addr:"Via Volta 13, Brera",lat:45.4798,lng:9.1832,area:"Brera",price:7.5,rating:4.4,revCount:2,desc:"12 rotating taps in Brera. Excellent craft dark stouts. More bar than pub. Opens 16:30 daily.",official:false,guinness:false,type:"craft",phone:"+39 02 2900 2574",c:{g:80,f:85,t:90,p:80}},
+  {id:"citra",name:"Citra Beerstrot",addr:"Piazza Donegani 4, Lambrate",lat:45.4817,lng:9.2322,area:"Lambrate",price:6.8,rating:4.8,revCount:2,desc:"Small, intimate beer bar in Lambrate. British cans in the fridge, rotating stout taps. Enthusiastic owner who knows every brew. Closed Mon/Tue.",official:false,guinness:false,type:"craft",phone:"+39 333 344 8095",c:{g:90,f:90,t:95,p:85}},
+  {id:"baiamonti",name:"Guinness Pub Baiamonti",addr:"Piazza Baiamonti, Chinatown",lat:45.4824,lng:9.1812,area:"Chinatown",price:6.8,rating:4.8,revCount:1,desc:"Small Irish pub with Guinness on tap, pool table and vintage pinball. Very friendly owners, neighbourhood feel.",official:false,guinness:true,type:"irish",c:{g:80,f:85,t:90,p:80}}
+];
+
+var REVIEWS = [
+  {id:"r1",pubId:"pogue",author:"Liam O'Connor",rating:5,comment:"As an Irishman in Milan I was desperate. Pogue Mahone's saved me. The foam is so thick you could rest a coin on top. Perfect 119-second pour, every time.",date:"2026-05-15",glass:true,foam:true,temp:true,pour:true,cG:5,cF:5,cT:5,cP:5,cA:5,cV:4},
+  {id:"r2",pubId:"pogue",author:"Francesca Rossi",rating:5,comment:"Creamy, velvety, delicate. The best Irish pub in Milan and you feel it the moment you walk in. Dublin transported to Porta Romana.",date:"2026-06-02",glass:true,foam:true,temp:true,pour:true,cG:5,cF:5,cT:5,cP:5,cA:5,cV:4},
+  {id:"r3",pubId:"pogue",author:"Espen Hansen",rating:4,comment:"Gorgeous dark stout. Great Irish atmosphere in the heart of Italy. Only complaint: closed Sundays.",date:"2026-06-10",glass:true,foam:true,temp:true,pour:true,cG:4,cF:4,cT:5,cP:4,cA:5,cV:4},
+  {id:"r4",pubId:"wizard",author:"Niall Fitzgerald",rating:5,comment:"One of the best pints of Guinness I have had outside Ireland. Perfect temperature, legendary creamy head. The canalside setting makes it even better.",date:"2026-05-27",glass:true,foam:true,temp:true,pour:true,cG:5,cF:5,cT:5,cP:5,cA:5,cV:4},
+  {id:"r5",pubId:"mulligans",author:"Seamus Murphy",rating:5,comment:"Mulligans takes Guinness seriously. Lines cleaned weekly, proper two-part pour, right temperature. Since 1993 they have not lost their touch.",date:"2026-05-20",glass:true,foam:true,temp:true,pour:true,cG:5,cF:5,cT:5,cP:4,cA:4,cV:4},
+  {id:"r6",pubId:"bbb",author:"Klaus Schmidt",rating:5,comment:"No standard Guinness but far superior craft stouts. The owner recommended a fantastic imperial stout from Bergamo. Worth the trip to Lodi.",date:"2026-06-16",glass:true,foam:true,temp:true,pour:true,cG:4,cF:5,cT:5,cP:5,cA:5,cV:5},
+  {id:"r7",pubId:"friends",author:"Helena S.",rating:5,comment:"The birramisu alone is worth coming for — tiramisu soaked in Guinness. The stout itself is silky smooth and properly cold.",date:"2026-06-02",glass:true,foam:true,temp:true,pour:true,cG:4,cF:5,cT:5,cP:4,cA:5,cV:4},
+  {id:"r8",pubId:"henrys",author:"Bjarne Meling",rating:3,comment:"The stout flavour is there but it's poured too fast — three fingers of foam every time. Adjust the pressure and it would be great.",date:"2026-05-26",glass:true,foam:false,temp:true,pour:false,cG:3,cF:2,cT:4,cP:2,cA:3,cV:3}
+];
+
+// ════════════════════════════════
+// STATE
+// ════════════════════════════════
+var pubs = [], reviews = [], selPub = null;
+var catFlt = "All", searchQ = "";
+var theMap = null, mLayer = null, tLayer = null;
+var sheetOpen = false;
+var totalStar = 5;
+var catScores = {g:3,f:3,t:3,p:3,a:3,v:3};
+var trainerState = "welcome", trainerName = "";
+var bH=0,fH=0,tilt=45,setP=0,isPouring=false,pourTimer=null,p1Score=0,setScore=0,p2Score=0;
+var newG=true, newCert=false;
+
+function loadData() {
+  try { var s=localStorage.getItem("bg3_p"); if(s) pubs=JSON.parse(s); } catch(e){}
+  try { var s=localStorage.getItem("bg3_r"); if(s) reviews=JSON.parse(s); } catch(e){}
+  if (!pubs.length) pubs = PUBS.map(function(p){ return Object.assign({},p); });
+  if (!reviews.length) reviews = REVIEWS.map(function(r){ return Object.assign({},r); });
+  // Merge any new pubs from seed
+  PUBS.forEach(function(sp){ if(!pubs.some(function(p){ return p.id===sp.id; })) pubs.push(Object.assign({},sp)); });
+}
+function savePubs(){ try{localStorage.setItem("bg3_p",JSON.stringify(pubs));}catch(e){} }
+function saveRevs(){ try{localStorage.setItem("bg3_r",JSON.stringify(reviews));}catch(e){} }
+
+// ════════════════════════════════
+// FILTER
+// ════════════════════════════════
+function filtered() {
+  var q = searchQ.toLowerCase();
+  return pubs.filter(function(p){
+    if (q && p.name.toLowerCase().indexOf(q)<0 && p.area.toLowerCase().indexOf(q)<0 && p.addr.toLowerCase().indexOf(q)<0) return false;
+    if (catFlt !== "All" && p.type !== catFlt) return false;
+    return true;
+  }).sort(function(a,b){ return b.rating - a.rating; });
+}
+
+// ════════════════════════════════
+// MAP
+// ════════════════════════════════
+function initMap() {
+  theMap = L.map("map", {
+    center: [45.4642, 9.19], zoom: 13,
+    zoomControl: false, attributionControl: false
+  });
+  L.control.zoom({position:"bottomright"}).addTo(theMap);
+  mLayer = L.layerGroup().addTo(theMap);
+  applyTheme("light");
+}
+
+function applyTheme(t) {
+  if (tLayer) theMap.removeLayer(tLayer);
+  var url = t === "dark"
+    ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+    : "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png";
+  tLayer = L.tileLayer(url, {maxZoom:19}).addTo(theMap);
+  document.getElementById("theme-light").classList.toggle("on", t==="light");
+  document.getElementById("theme-dark").classList.toggle("on", t==="dark");
+}
+
+function renderMarkers() {
+  mLayer.clearLayers();
+  var fp = filtered();
+  document.getElementById("map-stats").textContent = fp.length + " pub" + (fp.length!==1?"s":"");
+  document.getElementById("sheet-cnt").textContent = fp.length;
+
+  var colors = {irish:"#2d7a4a", craft:"#b87030", british:"#2a4e90", casual:"#555"};
+  var icons = {irish:"🍺", craft:"🍻", british:"🏴", casual:"☕"};
+
+  fp.forEach(function(pub){
+    var act = selPub && selPub.id === pub.id;
+    var col = colors[pub.type] || "#666";
+    var em = icons[pub.type] || "🍺";
+    var border = act ? "#c9a84c" : col;
+    var bg = act ? "#1c1400" : "#141414";
+    var ping = act ? '<div style="position:absolute;top:0;width:32px;height:32px;border-radius:50%;background:' + col + ';opacity:.18;animation:ping 1.3s infinite"></div>' : "";
+    var h = '<div style="transform:translate(-15px,-50px);display:flex;flex-direction:column;align-items:center;cursor:pointer">'
+      + ping
+      + '<div style="width:30px;height:36px;background:' + bg + ';border:2px solid ' + border + ';border-radius:8px 8px 3px 3px;display:flex;align-items:center;justify-content:center;font-size:17px;box-shadow:0 4px 16px rgba(0,0,0,.7)">' + em + '</div>'
+      + '<div style="font-size:8px;font-weight:800;font-family:monospace;padding:2px 5px;background:' + border + ';color:' + (act?"#000":"#fff") + ';border-radius:3px;white-space:nowrap">&#9733;' + pub.rating.toFixed(1) + '</div>'
+      + '<div style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:6px solid ' + border + '"></div>'
+      + '</div>';
+    var icon = L.divIcon({html:h, className:"", iconSize:[30,52], iconAnchor:[15,52]});
+    var m = L.marker([pub.lat, pub.lng], {icon:icon});
+    (function(p){ m.on("click", function(){ selectPub(p); }); })(pub);
+    m.bindTooltip(
+      '<div style="padding:8px 12px;font-family:-apple-system,sans-serif"><b style="font-size:13px;color:#ede0c8">' + pub.name + '</b><br><span style="font-size:11px;color:#c9a84c">' + pub.area + ' &middot; &euro;' + pub.price.toFixed(2) + '</span></div>',
+      {direction:"top", offset:[0,-54], opacity:.97}
+    );
+    m.addTo(mLayer);
+  });
+}
+
+function panTo(pub) {
+  if (theMap) theMap.setView([pub.lat - 0.002, pub.lng], 15, {animate:true, duration:1.0});
+}
+
+// ════════════════════════════════
+// PUB LIST
+// ════════════════════════════════
+function renderList() {
+  var el = document.getElementById("pub-list");
+  var fp = filtered();
+  if (!fp.length) {
+    el.innerHTML = '<div class="no-pubs">No pubs match — try a different filter</div>';
+    return;
+  }
+  var html = "";
+  var em = {irish:"🍺", craft:"🍻", british:"🏴", casual:"☕"};
+  fp.forEach(function(p){
+    var isSel = selPub && selPub.id === p.id;
+    html += '<div class="pub-card' + (isSel?" sel":"") + '" data-id="' + p.id + '">'
+      + '<div class="pc-emoji">' + (em[p.type]||"🍺") + '</div>'
+      + '<div class="pc-body">'
+      + '<div class="pc-name">' + p.name + '</div>'
+      + '<div class="pc-meta">' + p.area + (p.guinness ? ' &middot; Guinness on tap' : '') + '</div>'
+      + '</div>'
+      + '<div class="pc-right">'
+      + '<div class="pc-price">&euro;' + p.price.toFixed(2) + '</div>'
+      + '<div class="pc-rat">&#9733; ' + p.rating.toFixed(1) + '</div>'
+      + '</div></div>';
+  });
+  el.innerHTML = html;
+  el.querySelectorAll(".pub-card").forEach(function(card){
+    card.addEventListener("click", function(){
+      var p = pubs.filter(function(x){ return x.id===this.dataset.id; }, this)[0];
+      if (p) selectPub(p);
+    });
+  });
+}
+
+// ════════════════════════════════
+// SELECT PUB → DETAIL
+// ════════════════════════════════
+function selectPub(p) {
+  selPub = p;
+  renderList();
+  renderMarkers();
+  renderDetail(p);
+  showScreen("det");
+  panTo(p);
+}
+
+// ════════════════════════════════
+// DETAIL
+// ════════════════════════════════
+function renderDetail(p) {
+  var el = document.getElementById("det-scroll");
+  var revs = reviews.filter(function(r){ return r.pubId===p.id; })
+    .sort(function(a,b){ return a.date > b.date ? -1 : 1; });
+
+  var typeLbl = {irish:"🇮🇪 Irish Pub", british:"🇬🇧 British Pub", craft:"🍺 Craft Bar", casual:"☕ Local Bar"};
+  var qRows = [["🥃 Tulip glass","g"],["💨 Creamy head","f"],["🌡️ Temperature","t"],["⏱️ Two-part pour","p"]];
+
+  function stars(n) {
+    var s = "";
+    for (var i=1;i<=5;i++) s += '<span class="'+(i>n?"dim":"")+'">&#9733;</span>';
+    return s;
+  }
+
+  var qHtml = qRows.map(function(q){
+    return '<div class="q-row"><div class="q-top"><span>'+q[0]+'</span><span class="q-pct">'+p.c[q[1]]+'%</span></div>'
+      +'<div class="q-bar"><div class="q-fill" style="width:'+p.c[q[1]]+'%"></div></div></div>';
+  }).join("");
+
+  var revHtml = revs.length===0
+    ? '<div class="rev-empty">No reviews yet &mdash; be the first to rate this pint!</div>'
+    : revs.map(function(r){
+        var cats = "";
+        if (r.cG !== undefined) {
+          cats = '<div class="rv-cats">'
+            +'<div class="rv-cat"><div class="rv-cv">'+r.cG+'&#9733;</div><div class="rv-cl">Glass</div></div>'
+            +'<div class="rv-cat"><div class="rv-cv">'+r.cF+'&#9733;</div><div class="rv-cl">Foam</div></div>'
+            +'<div class="rv-cat"><div class="rv-cv">'+r.cT+'&#9733;</div><div class="rv-cl">Temp</div></div>'
+            +'<div class="rv-cat"><div class="rv-cv">'+r.cP+'&#9733;</div><div class="rv-cl">Pour</div></div>'
+            +'<div class="rv-cat"><div class="rv-cv">'+r.cA+'&#9733;</div><div class="rv-cl">Vibe</div></div>'
+            +'<div class="rv-cat"><div class="rv-cv">'+r.cV+'&#9733;</div><div class="rv-cl">Value</div></div>'
+            +'</div>';
+        }
+        return '<div class="rev-card">'
+          +'<div class="rv-top"><div><div class="rv-author">'+r.author+'</div><div class="rv-date">'+r.date+'</div></div>'
+          +'<div class="rv-stars">'+stars(r.rating)+'</div></div>'
+          +'<div class="rv-comment">&ldquo;'+r.comment+'&rdquo;</div>'
+          +cats
+          +'<div class="chips">'
+          +'<span class="chip '+(r.glass?"y":"n")+'">Glass '+(r.glass?"&#x2713;":"&#x2717;")+'</span>'
+          +'<span class="chip '+(r.foam?"y":"n")+'">Foam '+(r.foam?"&#x2713;":"&#x2717;")+'</span>'
+          +'<span class="chip '+(r.temp?"y":"n")+'">Temp '+(r.temp?"&#x2713;":"&#x2717;")+'</span>'
+          +'<span class="chip '+(r.pour?"y":"n")+'">Pour '+(r.pour?"&#x2713;":"&#x2717;")+'</span>'
+          +'</div></div>';
+      }).join("");
+
+  var links = "";
+  if (p.phone || p.web) {
+    links = '<div class="det-links">'
+      +(p.phone?'<a href="tel:'+p.phone+'" class="det-link">&#128222; '+p.phone+'</a>':'')
+      +(p.web?'<a href="'+p.web+'" target="_blank" rel="noreferrer" class="det-link">&#127760; Website</a>':'')
+      +'</div>';
+  }
+
+  el.innerHTML =
+    '<div class="det-back"><button class="det-back-btn" id="det-back">&#8249; Map</button></div>'
+    +'<div class="det-hero">'
+    +'<div class="det-badges">'
+    +'<span class="badge ba">'+p.area+'</span>'
+    +'<span class="badge b'+p.type.charAt(0)+'">'+(typeLbl[p.type]||p.type)+'</span>'
+    +(p.guinness?'<span class="badge bg">&#127866; Guinness</span>':'<span class="badge" style="color:var(--craft);border-color:rgba(184,112,48,.3);background:rgba(184,112,48,.08)">&#9888; Alt. stout</span>')
+    +(p.official?'<span class="badge bg">&#127893; Quality Partner</span>':'')
+    +'</div>'
+    +'<div class="det-name">'+p.name+'</div>'
+    +'<div class="det-addr">&#128205; '+p.addr+'</div>'
+    +'<div class="det-stats">'
+    +'<div class="ds"><div class="ds-v">&euro;'+p.price.toFixed(2)+'</div><div class="ds-l">Per pint</div></div>'
+    +'<div class="ds"><div class="ds-v">&#9733; '+p.rating.toFixed(1)+'</div><div class="ds-l">Rating</div></div>'
+    +'<div class="ds"><div class="ds-v">'+p.revCount+'</div><div class="ds-l">Reviews</div></div>'
+    +'</div></div>'
+    +'<div class="det-section"><div class="det-section-title">Quality certificate</div>'+qHtml
+    +'<div class="n2-pill"><span>Tap system:</span><span class="n2-v">&#x2713; Nitrogen N&#x2082;/CO&#x2082; 75/25</span></div></div>'
+    +'<div class="det-section"><div class="det-section-title">About this pub</div><div class="det-desc">'+p.desc+'</div>'+links+'</div>'
+    +'<div class="rev-head"><div class="rev-head-t">Reviews ('+p.revCount+')</div><button class="rate-btn" id="rate-btn">&#x2736; Rate this pint</button></div>'
+    + revHtml;
+
+  document.getElementById("det-back").addEventListener("click", function(){ showScreen("map"); });
+  document.getElementById("rate-btn").addEventListener("click", function(){ openRevModal(p); });
+}
+
+// ════════════════════════════════
+// REVIEWS HUB
+// ════════════════════════════════
+function renderRevHub() {
+  var el = document.getElementById("rev-scroll");
+  var all = reviews.slice().sort(function(a,b){ return a.date>b.date?-1:1; });
+  var total = all.length;
+  var avg = total ? all.reduce(function(s,r){return s+r.rating;},0)/total : 0;
+  var top5 = all.filter(function(r){return r.rating===5;}).length;
+  var uniqs = {}; all.forEach(function(r){uniqs[r.pubId]=1;});
+
+  function stars(n){var s="";for(var i=1;i<=5;i++)s+='<span class="'+(i>n?"dim":"")+'">&#9733;</span>';return s;}
+
+  var cards = all.length===0
+    ? '<div class="hub-empty"><div style="font-size:44px;opacity:.15;margin-bottom:12px">&#127866;</div><div>No reviews yet. Select a pub and rate a pint!</div></div>'
+    : all.map(function(r){
+        var p = pubs.filter(function(x){return x.id===r.pubId;})[0];
+        var cats="";
+        if(r.cG!==undefined){cats='<div class="rv-cats" style="margin-bottom:9px">'
+          +'<div class="rv-cat"><div class="rv-cv">'+r.cG+'&#9733;</div><div class="rv-cl">Glass</div></div>'
+          +'<div class="rv-cat"><div class="rv-cv">'+r.cF+'&#9733;</div><div class="rv-cl">Foam</div></div>'
+          +'<div class="rv-cat"><div class="rv-cv">'+r.cT+'&#9733;</div><div class="rv-cl">Temp</div></div>'
+          +'<div class="rv-cat"><div class="rv-cv">'+r.cP+'&#9733;</div><div class="rv-cl">Pour</div></div>'
+          +'<div class="rv-cat"><div class="rv-cv">'+r.cA+'&#9733;</div><div class="rv-cl">Vibe</div></div>'
+          +'<div class="rv-cat"><div class="rv-cv">'+r.cV+'&#9733;</div><div class="rv-cl">Value</div></div>'
+          +'</div>';}
+        return '<div class="hub-card"><div class="hub-pub">'+(p?p.name:"Unknown pub")+'</div>'
+          +'<div class="rv-top"><div><div class="rv-author">'+r.author+'</div><div class="rv-date">'+r.date+'</div></div><div class="rv-stars">'+stars(r.rating)+'</div></div>'
+          +'<div class="rv-comment">&ldquo;'+r.comment+'&rdquo;</div>'+cats
+          +'<div class="chips"><span class="chip '+(r.glass?"y":"n")+'">Glass '+(r.glass?"&#x2713;":"&#x2717;")+'</span><span class="chip '+(r.foam?"y":"n")+'">Foam '+(r.foam?"&#x2713;":"&#x2717;")+'</span><span class="chip '+(r.temp?"y":"n")+'">Temp '+(r.temp?"&#x2713;":"&#x2717;")+'</span><span class="chip '+(r.pour?"y":"n")+'">Pour '+(r.pour?"&#x2713;":"&#x2717;")+'</span></div></div>';
+      }).join("");
+
+  el.innerHTML = '<div class="hub-top"><div class="hub-title">All Reviews</div><button class="pdf-btn" id="pdf-btn">&#128196; PDF</button></div>'
+    +'<div class="hub-grid">'
+    +'<div class="hub-stat"><div class="hub-sv">'+total+'</div><div class="hub-sl">Reviews</div></div>'
+    +'<div class="hub-stat"><div class="hub-sv">'+avg.toFixed(1)+'&#9733;</div><div class="hub-sl">Avg rating</div></div>'
+    +'<div class="hub-stat"><div class="hub-sv">'+top5+'</div><div class="hub-sl">5-star pints</div></div>'
+    +'<div class="hub-stat"><div class="hub-sv">'+Object.keys(uniqs).length+'</div><div class="hub-sl">Pubs visited</div></div>'
+    +'</div>'+cards;
+  document.getElementById("pdf-btn").addEventListener("click", exportPDF);
+}
+
+// ════════════════════════════════
+// PDF EXPORT
+// ════════════════════════════════
+function exportPDF() {
+  var jsPDF = (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
+  if (!jsPDF) { alert("PDF not available"); return; }
+  var doc = new jsPDF({orientation:"portrait",unit:"mm",format:"a4"});
+  var W=210,M=16,y=M;
+  function chk(n){if(y+n>284){doc.addPage();y=M;}}
+
+  doc.setFillColor(10,10,10);doc.rect(0,0,W,297,"F");
+  doc.setFillColor(201,168,76);doc.rect(0,0,W,28,"F");
+  doc.setTextColor(0);doc.setFontSize(18);doc.setFont("helvetica","bold");
+  doc.text("Black Gold — Guinness Milano",M,13);
+  doc.setFontSize(8);doc.setFont("helvetica","normal");
+  doc.text("Review Report · "+new Date().toLocaleDateString("en-GB",{year:"numeric",month:"long",day:"numeric"}),M,21);
+  y=36;
+
+  var all=reviews.slice().sort(function(a,b){return a.date>b.date?-1:1;});
+  var avg=all.length?all.reduce(function(s,r){return s+r.rating;},0)/all.length:0;
+  var uniqs={};all.forEach(function(r){uniqs[r.pubId]=1;});
+
+  doc.setFillColor(20,16,4);doc.roundedRect(M,y,W-M*2,16,3,3,"F");
+  [[all.length+"","reviews"],[avg.toFixed(1)+"★","avg"],[all.filter(function(r){return r.rating===5;}).length+"","5-star"],[Object.keys(uniqs).length+"","pubs"]].forEach(function(s,i){
+    var x=M+6+(i*42);
+    doc.setTextColor(201,168,76);doc.setFontSize(11);doc.setFont("helvetica","bold");doc.text(s[0],x,y+8);
+    doc.setTextColor(120,100,60);doc.setFontSize(6);doc.setFont("helvetica","normal");doc.text(s[1].toUpperCase(),x,y+13);
+  });
+  y+=24;
+
+  all.forEach(function(r){
+    var p=pubs.filter(function(x){return x.id===r.pubId;})[0];
+    var hasC=r.cG!==undefined;
+    chk(hasC?52:36);
+    doc.setFillColor(20,16,4);doc.roundedRect(M,y,W-M*2,hasC?48:32,3,3,"F");
+    doc.setFillColor(201,168,76);doc.rect(M,y,3,hasC?48:32,"F");
+    doc.setTextColor(201,168,76);doc.setFontSize(7);doc.setFont("helvetica","bold");
+    doc.text((p?p.name:"Unknown").toUpperCase().substring(0,38),M+6,y+6);
+    doc.setTextColor(237,224,200);doc.setFontSize(10);doc.text(r.author,M+6,y+12);
+    doc.setTextColor(110,90,50);doc.setFontSize(7);doc.setFont("helvetica","normal");doc.text(r.date,M+6,y+17);
+    doc.setTextColor(201,168,76);doc.setFontSize(11);
+    doc.text("★".repeat(r.rating)+"☆".repeat(5-r.rating),W-M-28,y+12);
+    doc.setTextColor(200,185,150);doc.setFontSize(8);doc.setFont("helvetica","italic");
+    var lines=doc.splitTextToSize('"'+r.comment+'"',W-M*2-8);
+    doc.text(lines,M+6,y+23);
+    if(hasC){
+      var cats=[["Glass",r.cG],["Foam",r.cF],["Temp",r.cT],["Pour",r.cP],["Vibe",r.cA],["Value",r.cV]];
+      cats.forEach(function(c,ci){
+        var cx=M+6+(ci*27);
+        doc.setFillColor(30,24,8);doc.roundedRect(cx,y+34,25,10,2,2,"F");
+        doc.setTextColor(201,168,76);doc.setFontSize(8);doc.setFont("helvetica","bold");doc.text(c[1]+"★",cx+4,y+40);
+        doc.setTextColor(100,85,45);doc.setFontSize(6);doc.setFont("helvetica","normal");doc.text(c[0],cx+2,y+45);
+      });
+    }
+    y+=(hasC?54:38);
+  });
+
+  var pages=doc.internal.getNumberOfPages();
+  for(var i=1;i<=pages;i++){doc.setPage(i);doc.setFillColor(201,168,76);doc.rect(0,290,W,7,"F");doc.setTextColor(0);doc.setFontSize(7);doc.setFont("helvetica","normal");doc.text("Black Gold — Guinness Milano",M,295);doc.text("Page "+i+"/"+pages,W-M-12,295);}
+  doc.save("black-gold-reviews.pdf");
+}
+
+// ════════════════════════════════
+// REVIEW MODAL
+// ════════════════════════════════
+var CAT_DEFS = [
+  {k:"g",lbl:"🥃 Glass"},
+  {k:"f",lbl:"💨 Foam"},
+  {k:"t",lbl:"🌡️ Temp"},
+  {k:"p",lbl:"⏱️ Pour"},
+  {k:"a",lbl:"🎵 Vibe"},
+  {k:"v",lbl:"💰 Value"}
+];
+
+function buildStars() {
+  var wrap = document.getElementById("star-btns");
+  var html = "";
+  for (var i=1;i<=5;i++) html += '<button class="sstar'+(i<=totalStar?" on":"")+'\" data-v="'+i+'">&#9733;</button>';
+  wrap.innerHTML = html;
+  wrap.querySelectorAll(".sstar").forEach(function(btn){
+    btn.addEventListener("click", function(){
+      totalStar = parseInt(this.dataset.v);
+      document.getElementById("star-num").textContent = totalStar;
+      wrap.querySelectorAll(".sstar").forEach(function(b,j){ b.className="sstar"+(j<totalStar?" on":""); });
+    });
+    btn.addEventListener("mouseenter", function(){
+      var v=parseInt(this.dataset.v);
+      wrap.querySelectorAll(".sstar").forEach(function(b,j){ b.className="sstar"+(j<v?" on":""); });
+    });
+    btn.addEventListener("mouseleave", function(){
+      wrap.querySelectorAll(".sstar").forEach(function(b,j){ b.className="sstar"+(j<totalStar?" on":""); });
+    });
+  });
+}
+
+function buildHarps() {
+  var grid = document.getElementById("harp-grid");
+  var html = "";
+  CAT_DEFS.forEach(function(cat){
+    var v = catScores[cat.k];
+    var scale = (0.45 + (v-1)*0.1375).toFixed(3);
+    var op = (0.3 + (v-1)*0.175).toFixed(3);
+    html += '<div class="harp-cell">'
+      +'<div class="harp-lbl">'+cat.lbl+'</div>'
+      +'<div class="harp-body">'
+      +'<div class="harp-stage" id="hs-'+cat.k+'" style="transform:scale('+scale+')">'+harp(64,parseFloat(op))+'</div>'
+      +'<input type="range" class="harp-range" id="hr-'+cat.k+'" min="1" max="5" step="1" value="'+v+'">'
+      +'<div class="harp-val" id="hv-'+cat.k+'">'+v+'/5</div>'
+      +'</div></div>';
+  });
+  grid.innerHTML = html;
+  CAT_DEFS.forEach(function(cat){
+    document.getElementById("hr-"+cat.k).addEventListener("input", function(){
+      var v = parseInt(this.value);
+      catScores[cat.k] = v;
+      var scale = (0.45+(v-1)*0.1375).toFixed(3);
+      var op = (0.3+(v-1)*0.175).toFixed(3);
+      var stage = document.getElementById("hs-"+cat.k);
+      stage.style.transform = "scale("+scale+")";
+      stage.innerHTML = harp(64, parseFloat(op));
+      document.getElementById("hv-"+cat.k).textContent = v+"/5";
+    });
+  });
+}
+
+function toggleChk(id) {
+  var box = document.getElementById(id+"-box");
+  var on = box.classList.contains("on");
+  box.classList.toggle("on", !on);
+  box.textContent = on ? "" : "✓";
+}
+
+function openRevModal(p) {
+  document.getElementById("rev-modal-title").textContent = "Rate the pint at " + p.name;
+  document.getElementById("r-name").value = "";
+  document.getElementById("r-comment").value = "";
+  document.getElementById("rev-err").style.display = "none";
+  totalStar = 5;
+  catScores = {g:3,f:3,t:3,p:3,a:3,v:3};
+  buildStars();
+  buildHarps();
+  ["aud-glass","aud-foam","aud-temp","aud-pour"].forEach(function(id){
+    var b=document.getElementById(id+"-box"); b.classList.add("on"); b.textContent="✓";
+  });
+  openModal("modal-rev");
+}
+
+function submitReview() {
+  var name = document.getElementById("r-name").value.trim();
+  var comment = document.getElementById("r-comment").value.trim();
+  var err = document.getElementById("rev-err");
+  if (!name) { err.style.display="block"; err.textContent="Please enter your name."; return; }
+  if (!comment) { err.style.display="block"; err.textContent="Please write a comment."; return; }
+  err.style.display = "none";
+  function chk(id){ return document.getElementById(id+"-box").classList.contains("on"); }
+  var r = {
+    id:"r-"+Date.now(), pubId:selPub.id, author:name, rating:totalStar, comment:comment,
+    date:new Date().toISOString().slice(0,10),
+    glass:chk("aud-glass"), foam:chk("aud-foam"), temp:chk("aud-temp"), pour:chk("aud-pour"),
+    cG:catScores.g, cF:catScores.f, cT:catScores.t, cP:catScores.p, cA:catScores.a, cV:catScores.v
+  };
+  reviews.unshift(r);
+  var pr = reviews.filter(function(x){ return x.pubId===selPub.id; });
+  var avg = pr.reduce(function(s,x){ return s+x.rating; },0)/pr.length;
+  function pct(k){ return Math.round(pr.filter(function(x){return x[k];}).length/pr.length*100); }
+  pubs = pubs.map(function(p){
+    if (p.id!==selPub.id) return p;
+    var np = Object.assign({},p);
+    np.rating = parseFloat(avg.toFixed(1));
+    np.revCount = pr.length;
+    np.c = {g:pct("glass"),f:pct("foam"),t:pct("temp"),p:pct("pour")};
+    selPub = np;
+    return np;
+  });
+  savePubs(); saveRevs();
+  closeModal("modal-rev");
+  renderDetail(selPub);
+  renderList();
+  renderMarkers();
+}
+
+// ════════════════════════════════
+// ADD PUB
+// ════════════════════════════════
+function submitPub() {
+  var name = document.getElementById("np-name").value.trim();
+  var addr = document.getElementById("np-addr").value.trim();
+  var err = document.getElementById("add-err");
+  if (!name) { err.style.display="block"; err.textContent="Please enter a name."; return; }
+  if (!addr) { err.style.display="block"; err.textContent="Please enter an address."; return; }
+  err.style.display = "none";
+  var np = {
+    id:"p-"+Date.now(), name:name, addr:addr,
+    lat:parseFloat(document.getElementById("np-lat").value)||45.4642,
+    lng:parseFloat(document.getElementById("np-lng").value)||9.19,
+    area:document.getElementById("np-area").value,
+    price:parseFloat(document.getElementById("np-price").value)||7.5,
+    rating:5.0, revCount:0,
+    desc:document.getElementById("np-desc").value.trim()||"Pub in "+document.getElementById("np-area").value+".",
+    official:newCert, guinness:newG,
+    type:document.getElementById("np-type").value,
+    phone:document.getElementById("np-phone").value.trim()||undefined,
+    web:document.getElementById("np-web").value.trim()||undefined,
+    c:{g:100,f:100,t:100,p:100}
+  };
+  pubs.push(np); savePubs();
+  closeModal("modal-add");
+  renderList(); renderMarkers();
+  selectPub(np);
+}
+
+// ════════════════════════════════
+// POUR SCHOOL (TRAINER)
+// ════════════════════════════════
+function renderTrainer() {
+  var card = document.getElementById("pour-card");
+  if (trainerState === "welcome") {
+    card.innerHTML = '<div class="pc-eye">Pour School</div>'
+      +'<div class="pc-h">The Perfect Pint</div>'
+      +'<div class="pc-p">A Guinness masterclass. The official two-part pour takes <strong style="color:var(--gold)">119.5 seconds</strong>. Practice your technique here.</div>'
+      +'<div class="pour-steps">'
+      +'<div class="ps"><div class="ps-n">1</div><div class="ps-t">Hold the button and fill the glass tilted at 45° until <strong>78% full</strong>.</div></div>'
+      +'<div class="ps"><div class="ps-n">2</div><div class="ps-t">Wait for the nitrogen surge. The stout turns jet black from the bottom up.</div></div>'
+      +'<div class="ps"><div class="ps-n">3</div><div class="ps-t">Top up to the brim with a slow, steady push — the dome of cream forms above the rim.</div></div>'
+      +'</div>'
+      +'<input class="pour-name" id="pour-name-inp" placeholder="Your bartender alias…" value="'+trainerName+'" maxlength="20">'
+      +'<button class="pour-btn" id="pour-start" '+(trainerName.trim()?"":'disabled')+'>&#x25B6; Begin</button>';
+    document.getElementById("pour-name-inp").addEventListener("input", function(){
+      trainerName = this.value;
+      document.getElementById("pour-start").disabled = !trainerName.trim();
+    });
+    document.getElementById("pour-start").addEventListener("click", function(){
+      trainerState="p1"; bH=0;fH=0;tilt=45; renderTrainer();
+    });
+    return;
+  }
+  if (trainerState === "done") {
+    var avg = Math.round((p1Score+setScore+p2Score)/3);
+    var rank = avg>=98?"Black Gold Master 👑":avg>=90?"Certified Dublin Bartender 🏅":avg>=70?"Stout Apprentice 🍺":"Pour Disaster 😱";
+    card.innerHTML = '<div class="results">'
+      +'<span class="results-trophy">🏆</span>'
+      +'<div class="results-score">'+avg+'/100</div>'
+      +'<div class="results-rank">'+rank+'</div>'
+      +'</div>'
+      +'<div class="score-grid">'
+      +'<div class="score-box"><div class="score-lbl">Step 1</div><div class="score-val">'+p1Score+'%</div><div class="score-sub">First pour (78%)</div></div>'
+      +'<div class="score-box"><div class="score-lbl">Step 2</div><div class="score-val">'+setScore+'%</div><div class="score-sub">Nitrogen surge</div></div>'
+      +'<div class="score-box"><div class="score-lbl">Step 3</div><div class="score-val">'+p2Score+'%</div><div class="score-sub">Top up (100%)</div></div>'
+      +'</div>'
+      +'<div class="pour-msg">'+(avg>=90?"Outstanding! You're ready to work the taps at Pogue Mahone's. 🇮🇪":"Black gold takes practice. Give it another go!")+'</div>'
+      +'<button class="pour-btn" id="pour-retry">&#x21BA; Try again</button>';
+    document.getElementById("pour-retry").addEventListener("click", resetTrainer);
+    return;
+  }
+  var stepLabels = {p1:"Step 1 — First Pour", settle:"Step 2 — Nitrogen Surge", p2:"Step 3 — Top Up"};
+  var msgs = {p1:"Hold the button. Release exactly at 78%.", settle:"Watch the cascade. Wait until the stout is jet black.", p2:"Top up to the brim with a slow, gentle push."};
+  var tgtHtml = trainerState==="p1"
+    ? '<div class="g-target" style="bottom:78%"><span class="g-target-lbl">TARGET 78%</span></div>'
+    : trainerState==="p2"
+    ? '<div class="g-target" style="bottom:97%"><span class="g-target-lbl">BRIM</span></div>'
+    : "";
+  var beerClass = trainerState==="settle"?"g-settle":trainerState==="p2"?"g-p2":"g-p1";
+  card.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;border-bottom:1px solid var(--b1);padding-bottom:9px">'
+    +'<span class="pour-step-lbl">'+stepLabels[trainerState]+'</span>'
+    +'<button class="pour-abort" id="pour-abort">&#x21BA; Abort</button>'
+    +'</div>'
+    +'<div class="glass-wrap"><div class="glass" id="glass" style="transform:rotate('+tilt+'deg)">'
+    +'<div class="glass-body"><div class="g-shine"></div>'+tgtHtml
+    +'<div class="g-foam" id="g-foam" style="height:'+fH+'%"></div>'
+    +'<div class="g-beer '+beerClass+'" id="g-beer" style="height:'+bH+'%"></div>'
+    +'</div></div></div>'
+    +'<div class="pour-msg" id="pour-msg">'+msgs[trainerState]+'</div>'
+    +(trainerState==="settle"?'<div class="settle-bar"><div class="sb-head"><span>Nitrogen settling…</span><span id="sp-pct">'+setP+'%</span></div><div class="sb-bg"><div class="sb-fill" id="sp-fill" style="width:'+setP+'%"></div></div></div>':"")
+    +(trainerState!=="settle"?'<button class="pour-btn" id="pour-hold">POUR — HOLD &amp; RELEASE</button>':"");
+  document.getElementById("pour-abort").addEventListener("click", resetTrainer);
+  if (trainerState !== "settle") {
+    var btn = document.getElementById("pour-hold");
+    btn.addEventListener("mousedown", startPour);
+    btn.addEventListener("mouseup", stopPour);
+    btn.addEventListener("mouseleave", function(){ if(isPouring) stopPour(); });
+    btn.addEventListener("touchstart", function(e){e.preventDefault();startPour();},{passive:false});
+    btn.addEventListener("touchend", function(e){e.preventDefault();stopPour();},{passive:false});
+  }
+  if (trainerState === "settle") startSettle();
+}
+
+function resetTrainer() {
+  trainerState="welcome";bH=0;fH=0;tilt=45;setP=0;isPouring=false;
+  if(pourTimer){clearInterval(pourTimer);pourTimer=null;}
+  renderTrainer();
+}
+
+function startPour() {
+  if (isPouring) return;
+  isPouring = true;
+  var btn = document.getElementById("pour-hold");
+  if (btn) { btn.textContent="Pouring… 🍻 Release!"; btn.classList.add("pouring"); }
+  pourTimer = setInterval(function(){
+    if (trainerState === "p1") {
+      bH = Math.min(bH+1.2,100); fH=Math.min(bH*.08,6); tilt=Math.max(45-bH*.5,0);
+      updateGlass();
+      if (bH>=86) { stopPour(); var m=document.getElementById("pour-msg");if(m)m.textContent="Too much! Stop at 78% next time."; }
+    } else if (trainerState === "p2") {
+      bH = Math.min(bH+.8,112); fH=Math.min(fH+.1,10);
+      updateGlass();
+      if (bH>=108) { stopPour(); var m=document.getElementById("pour-msg");if(m)m.textContent="Overflow! Easy does it."; }
+    }
+  }, 40);
+}
+
+function stopPour() {
+  if (!isPouring&&!pourTimer) return;
+  isPouring=false;
+  if(pourTimer){clearInterval(pourTimer);pourTimer=null;}
+  var btn=document.getElementById("pour-hold");
+  if(btn){btn.textContent="POUR — HOLD & RELEASE";btn.classList.remove("pouring");}
+  if (trainerState==="p1") {
+    p1Score = Math.max(0,Math.round(100-Math.abs(bH-78)*4));
+    trainerState="settle"; setP=0; renderTrainer();
+  } else if (trainerState==="p2") {
+    p2Score = Math.max(0,Math.round(100-Math.abs(bH-100)*8));
+    trainerState="done"; renderTrainer();
+  }
+}
+
+function startSettle() {
+  var p=setP;
+  var t=setInterval(function(){
+    p=Math.min(p+2,100); setP=p;
+    var f=document.getElementById("sp-fill"),pc=document.getElementById("sp-pct");
+    if(f)f.style.width=p+"%"; if(pc)pc.textContent=p+"%";
+    if(p>=100){clearInterval(t);setScore=100;trainerState="p2";renderTrainer();}
+  },110);
+}
+
+function updateGlass() {
+  var g=document.getElementById("glass"),b=document.getElementById("g-beer"),f=document.getElementById("g-foam");
+  if(g)g.style.transform="rotate("+tilt+"deg)";
+  if(b)b.style.height=bH+"%";
+  if(f)f.style.height=fH+"%";
+}
+
+// ════════════════════════════════
+// SCREEN MANAGEMENT
+// ════════════════════════════════
+var curScreen = "map";
+function showScreen(name) {
+  document.querySelectorAll(".screen").forEach(function(s){ s.classList.remove("active"); });
+  document.querySelectorAll(".tab").forEach(function(t){ t.classList.remove("on"); });
+  var screenIds = {map:"map-screen",det:"det-screen",reviews:"rev-screen",pour:"pour-screen"};
+  var tabIds = {map:"tab-map",reviews:"tab-reviews",pour:"tab-pour"};
+  var scr = document.getElementById(screenIds[name]);
+  if (scr) scr.classList.add("active");
+  var tab = document.getElementById(tabIds[name]);
+  if (tab) tab.classList.add("on");
+  curScreen = name;
+  if (name==="reviews") renderRevHub();
+  if (name==="pour") renderTrainer();
+  updateTopbarBtn(name);
+  // Fix map size when returning to map
+  if (name==="map" && theMap) setTimeout(function(){ theMap.invalidateSize(); }, 50);
+}
+
+function updateTopbarBtn(name) {
+  var el = document.getElementById("topbar-action");
+  if (name==="map") {
+    el.innerHTML = '<button class="tb-pill" id="dyn-add">+ Add pub</button>';
+    document.getElementById("dyn-add").addEventListener("click", function(){
+      newG=true;newCert=false;
+      document.getElementById("np-g-box").className="m-chkbox on";document.getElementById("np-g-box").textContent="✓";
+      document.getElementById("np-cert-box").className="m-chkbox";document.getElementById("np-cert-box").textContent="";
+      document.getElementById("add-err").style.display="none";
+      openModal("modal-add");
+    });
+  } else if (name==="pour") {
+    el.innerHTML='<button class="tb-pill" onclick="resetTrainer()">Reset</button>';
+  } else {
+    el.innerHTML="";
+  }
+}
+
+// ════════════════════════════════
+// MODAL
+// ════════════════════════════════
+function openModal(id){ document.getElementById(id).classList.add("show"); }
+function closeModal(id){ document.getElementById(id).classList.remove("show"); }
+
+// ════════════════════════════════
+// SHEET TOGGLE
+// ════════════════════════════════
+function toggleSheet(open) {
+  var sheet = document.getElementById("sheet");
+  if (open===undefined) sheetOpen=!sheetOpen;
+  else sheetOpen=open;
+  sheet.classList.toggle("expanded", sheetOpen);
+}
+
+// ════════════════════════════════
+// INIT
+// ════════════════════════════════
+document.addEventListener("DOMContentLoaded", function(){
+  // Ping animation
+  var st=document.createElement("style");
+  st.textContent="@keyframes ping{0%{transform:scale(1);opacity:.25}100%{transform:scale(2.2);opacity:0}}";
+  document.head.appendChild(st);
+
+  loadData();
+  initMap();
+  renderList();
+  renderMarkers();
+
+  // Search
+  document.getElementById("search-inp").addEventListener("input", function(){
+    searchQ=this.value; renderList(); renderMarkers();
+  });
+
+  // Sheet notch
+  var sheet=document.getElementById("sheet");
+  var sy=0;
+  document.getElementById("sheet-notch").addEventListener("click", function(){ toggleSheet(); });
+  sheet.addEventListener("touchstart",function(e){sy=e.touches[0].clientY;},{passive:true});
+  sheet.addEventListener("touchend",function(e){
+    var dy=e.changedTouches[0].clientY-sy;
+    if(dy>50&&sheetOpen)toggleSheet(false);
+    else if(dy<-50&&!sheetOpen)toggleSheet(true);
+  },{passive:true});
+
+  // Category pills
+  document.querySelectorAll(".cat-pill").forEach(function(btn){
+    btn.addEventListener("click",function(){
+      catFlt=this.dataset.cat;
+      document.querySelectorAll(".cat-pill").forEach(function(b){b.classList.toggle("on",b===btn);});
+      renderList();renderMarkers();
+    });
+  });
+
+  // Tab bar
+  document.querySelectorAll(".tab").forEach(function(tab){
+    tab.addEventListener("click",function(){ showScreen(this.dataset.screen); });
+  });
+
+  // Theme
+  document.getElementById("theme-light").addEventListener("click",function(){applyTheme("light");});
+  document.getElementById("theme-dark").addEventListener("click",function(){applyTheme("dark");});
+
+  // Review modal
+  document.getElementById("rev-ok").addEventListener("click",submitReview);
+  document.getElementById("rev-cancel").addEventListener("click",function(){closeModal("modal-rev");});
+  ["aud-glass","aud-foam","aud-temp","aud-pour"].forEach(function(id){
+    document.getElementById(id).addEventListener("click",function(){toggleChk(id);});
+  });
+
+  // Add pub modal
+  document.getElementById("btn-add-pub").addEventListener("click",function(){
+    newG=true;newCert=false;
+    document.getElementById("np-g-box").className="m-chkbox on";document.getElementById("np-g-box").textContent="✓";
+    document.getElementById("np-cert-box").className="m-chkbox";document.getElementById("np-cert-box").textContent="";
+    document.getElementById("add-err").style.display="none";
+    openModal("modal-add");
+  });
+  document.getElementById("add-ok").addEventListener("click",submitPub);
+  document.getElementById("add-cancel").addEventListener("click",function(){closeModal("modal-add");});
+  document.getElementById("np-g-btn").addEventListener("click",function(){
+    newG=!newG;
+    var b=document.getElementById("np-g-box");b.className="m-chkbox"+(newG?" on":"");b.textContent=newG?"✓":"";
+    if(!newG){newCert=false;var c=document.getElementById("np-cert-box");c.className="m-chkbox";c.textContent="";}
+  });
+  document.getElementById("np-cert-btn").addEventListener("click",function(){
+    if(!newG)return;newCert=!newCert;
+    var b=document.getElementById("np-cert-box");b.className="m-chkbox"+(newCert?" on":"");b.textContent=newCert?"✓":"";
+  });
+
+  // Close modals on bg tap
+  document.querySelectorAll(".overlay").forEach(function(el){
+    el.addEventListener("click",function(e){if(e.target===el)closeModal(el.id);});
+  });
+
+  updateTopbarBtn("map");
+});
+</script>
+</body>
+</html>
